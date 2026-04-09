@@ -1,0 +1,5 @@
+{
+  "name": "arcVRoom",
+  "description": "Drag and drop GLTF/GLB files to view them in a 3D environment with collision detection.",
+  "requestFramePermissions": []
+}

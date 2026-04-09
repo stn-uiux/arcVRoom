@@ -1,0 +1,109 @@
+[
+  {
+    "id": "bndhdari3",
+    "type": "point",
+    "enabled": true,
+    "position": [
+      0.6273391995593204,
+      30.698216177621195,
+      6.615785821530722
+    ],
+    "intensity": 20,
+    "color": "#fff8db",
+    "distance": 34,
+    "decay": 1.4,
+    "castShadow": false,
+    "name": "전체조명1"
+  },
+  {
+    "id": "6dn15byg5",
+    "type": "point",
+    "enabled": true,
+    "position": [
+      -0.5186238188715364,
+      33.66033787331121,
+      -13.632976661162997
+    ],
+    "intensity": 20,
+    "color": "#fff5d1",
+    "distance": 50,
+    "decay": 1.8,
+    "castShadow": false,
+    "name": "전체조명2"
+  },
+  {
+    "id": "1zhu8snf5",
+    "type": "point",
+    "enabled": true,
+    "position": [
+      -2.3481605245781774,
+      2.2717329414780547,
+      -1.7561722678856837
+    ],
+    "intensity": 0.1,
+    "color": "#f4f0ff",
+    "distance": 10.5,
+    "decay": 1.5,
+    "castShadow": false,
+    "name": "실내조명1"
+  },
+  {
+    "id": "j5c4219h7",
+    "type": "point",
+    "enabled": true,
+    "position": [
+      -5.414986624935767,
+      5.02145264953022,
+      -4.016484400351009
+    ],
+    "intensity": 0.3,
+    "color": "#ffffff",
+    "distance": 23,
+    "decay": 2.2,
+    "castShadow": true,
+    "shadowRadius": 20,
+    "name": "실내조명2"
+  },
+  {
+    "id": "ufgz9rkr5",
+    "type": "ambient",
+    "enabled": true,
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "intensity": 0.2,
+    "color": "#0000ff",
+    "castShadow": false,
+    "name": "색감"
+  },
+  {
+    "id": "s35cucab5",
+    "type": "directional",
+    "enabled": true,
+    "position": [
+      -0.9104104365617387,
+      -6.676117165515818,
+      0
+    ],
+    "intensity": 0.1,
+    "color": "#fffbe5",
+    "castShadow": false,
+    "name": "천장밝기1"
+  },
+  {
+    "id": "kbor4m2hd",
+    "type": "directional",
+    "enabled": true,
+    "position": [
+      -2.9,
+      -6.729823004547425,
+      -0.5
+    ],
+    "intensity": 0.1,
+    "color": "#ffffff",
+    "castShadow": false,
+    "name": "천장밝기2"
+  }
+]

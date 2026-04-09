@@ -1,0 +1,6 @@
+[
+  { "id": "cctv", "name": "CCTV", "url": "/models/cctv.gltf" },
+  { "id": "chair", "name": "Chair (GT)", "url": "/models/chair.gltf" },
+  { "id": "desk", "name": "Desk", "url": "/models/desk.gltf" },
+  { "id": "plant", "name": "Plant", "url": "/models/plant.gltf" }
+]
