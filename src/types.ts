@@ -143,4 +143,5 @@ export interface AppState {
   gridColor: string;
   showBackgroundColor: boolean;
   backgroundColor: string;
+  language?: 'en' | 'ko';
 }

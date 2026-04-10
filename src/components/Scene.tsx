@@ -271,7 +271,8 @@ const RealTimeBoxSelection: React.FC<RealTimeBoxSelectionProps> = ({
 
     const selectedIdx: string[] = [];
     Object.entries(meshes).forEach(([id, mesh]) => {
-      if (!mesh) return;
+      if (!mesh || mesh.userData?.locked) return; // Skip locked objects (Walls, etc.)
+      
       mesh.updateWorldMatrix(true, false);
       let box3 = new THREE.Box3();
       if (mesh.geometry) {
@@ -281,6 +282,14 @@ const RealTimeBoxSelection: React.FC<RealTimeBoxSelectionProps> = ({
         box3.setFromCenterAndSize(new THREE.Vector3().setFromMatrixPosition(mesh.matrixWorld), new THREE.Vector3(1, 1, 1));
       }
 
+      // Check if Object Center is within the screen box
+      const center = new THREE.Vector3();
+      box3.getCenter(center);
+      center.project(camera);
+      
+      const isCenterInBox = center.x >= min.x && center.x <= max.x && center.y >= min.y && center.y <= max.y;
+
+      // Check for AABB intersection but only for reasonably sized selection boxes
       const corners = [
         new THREE.Vector3(box3.min.x, box3.min.y, box3.min.z),
         new THREE.Vector3(box3.min.x, box3.min.y, box3.max.z),
@@ -302,12 +311,22 @@ const RealTimeBoxSelection: React.FC<RealTimeBoxSelectionProps> = ({
       });
 
       const doesIntersect = !(objMaxX < min.x || objMinX > max.x || objMaxY < min.y || objMinY > max.y);
-      if (doesIntersect) selectedIdx.push(id);
+
+      // Final decision:
+      // If it's a huge object (size on screen covers major area), only select if center is inside.
+      // Small objects can be captured by touching any part.
+      const objWidth = objMaxX - objMinX;
+      const objHeight = objMaxY - objMinY;
+      const isHuge = objWidth > 1.0 || objHeight > 1.0; 
+
+      if (isHuge ? isCenterInBox : doesIntersect) {
+        selectedIdx.push(id);
+      }
     });
 
-    // Also check lights
+    // Also check lights (skip locked ones if they ever exist)
     lights.forEach(light => {
-      if (light.type === 'ambient') return;
+      if (light.type === 'ambient' || light.locked) return;
       const v = new THREE.Vector3(...(light.position || [0, 0, 0]));
       v.project(camera);
       if (v.x >= min.x && v.x <= max.x && v.y >= min.y && v.y <= max.y) {
@@ -900,7 +919,7 @@ export const Scene = forwardRef<any, SceneProps>(({
         const selectedIdx: string[] = [];
         const selMeshes = selectionMeshesRef.current;
         Object.entries(selMeshes).forEach(([id, mesh]) => {
-          if (!mesh) return;
+          if (!mesh || mesh.userData?.locked) return;
           mesh.updateWorldMatrix(true, false);
           let box3 = new THREE.Box3();
           if (mesh.geometry) {
@@ -909,6 +928,11 @@ export const Scene = forwardRef<any, SceneProps>(({
           } else {
             box3.setFromCenterAndSize(new THREE.Vector3().setFromMatrixPosition(mesh.matrixWorld), new THREE.Vector3(1, 1, 1));
           }
+
+          const center = new THREE.Vector3();
+          box3.getCenter(center);
+          center.project(camera);
+          const isCenterInBox = center.x >= min.x && center.x <= max.x && center.y >= min.y && center.y <= max.y;
 
           const corners = [
             new THREE.Vector3(box3.min.x, box3.min.y, box3.min.z),
@@ -931,7 +955,13 @@ export const Scene = forwardRef<any, SceneProps>(({
           });
 
           const doesIntersect = !(objMaxX < min.x || objMinX > max.x || objMaxY < min.y || objMinY > max.y);
-          if (doesIntersect) selectedIdx.push(id);
+          const objWidth = objMaxX - objMinX;
+          const objHeight = objMaxY - objMinY;
+          const isHuge = objWidth > 1.0 || objHeight > 1.0; 
+
+          if (isHuge ? isCenterInBox : doesIntersect) {
+            selectedIdx.push(id);
+          }
         });
 
         state.lights.forEach(light => {
@@ -973,6 +1003,7 @@ export const Scene = forwardRef<any, SceneProps>(({
       <Canvas
         shadows={{ type: THREE.PCFSoftShadowMap }}
         camera={{ position: [15, 15, 15], fov: 40, near: 0.1, far: 20000 }}
+        gl={{ logarithmicDepthBuffer: true, antialias: true }}
         raycaster={{
           filter: (intersects) => {
             const gizmos = [];
@@ -1037,7 +1068,7 @@ export const Scene = forwardRef<any, SceneProps>(({
 
         {state.showGrid !== false && (
           <Grid
-            position={[0, -0.01, 0]}
+            position={[0, -0.03, 0]}
             infiniteGrid
             fadeDistance={50}
             fadeStrength={5}

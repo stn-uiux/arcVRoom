@@ -35,7 +35,8 @@ const initialState: AppState = {
   environmentBlur: 0.8,
   gridColor: '#ffffff',
   showBackgroundColor: false,
-  backgroundColor: '#ffffff'
+  backgroundColor: '#ffffff',
+  language: 'ko'
 };
 
 const expandSelectionWithGroups = (ids: string[], items: FurnitureItem[]): string[] => {
@@ -669,7 +670,7 @@ export default function App() {
 
   return (
     <div
-      className="w-full h-screen flex bg-[#0a0a0a] overflow-hidden"
+      className={`w-full h-screen flex bg-[#0a0a0a] overflow-hidden ${state.language === 'ko' ? 'lang-ko' : 'lang-en'}`}
       onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); }}
       onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
       onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDrop(e); }}

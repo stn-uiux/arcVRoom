@@ -1,16 +1,27 @@
-import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, Check } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ChevronDown, ChevronUp, Check, Box } from 'lucide-react';
 import { TextureConfig } from '../types';
 
 interface TextureSelectorProps {
   textures: TextureConfig[];
   selectedId: string;
   onSelect: (id: string) => void;
+  onEditMaterial?: (id: string) => void;
+  language?: 'en' | 'ko';
 }
 
-export const TextureSelector: React.FC<TextureSelectorProps> = ({ textures, selectedId, onSelect }) => {
+export const TextureSelector: React.FC<TextureSelectorProps> = ({ textures, selectedId, onSelect, onEditMaterial, language = 'ko' }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, id: string } | null>(null);
   const selectedTexture = textures.find(t => t.id === selectedId) || textures[0];
+  const t = (en: string, ko: string) => language === 'ko' ? ko : en;
+
+  // Close context menu on click elsewhere
+  useEffect(() => {
+    const handleGlobalClick = () => setContextMenu(null);
+    window.addEventListener('click', handleGlobalClick);
+    return () => window.removeEventListener('click', handleGlobalClick);
+  }, []);
 
   return (
     <div className="relative">
@@ -34,13 +45,18 @@ export const TextureSelector: React.FC<TextureSelectorProps> = ({ textures, sele
       </button>
 
       {isOpen && (
-        <div className="mt-2 grid grid-cols-5 gap-1.5 p-2 bg-black/60 backdrop-blur-xl rounded-xl border border-white/10 z-50 overflow-y-auto max-h-48 custom-scrollbar shadow-2xl">
+        <div className="mt-2 grid grid-cols-5 gap-1.5 p-2 bg-black/60 backdrop-blur-xl rounded-xl border border-white/10 z-50 overflow-y-auto max-h-48 custom-scrollbar shadow-2xl relative">
           {textures.map(tex => (
             <button
               key={tex.id}
               onClick={() => { onSelect(tex.id); setIsOpen(false); }}
+              onContextMenu={(e) => {
+                if (!tex.isCustom) return; // Only custom materials can be "modified" in the manager
+                e.preventDefault();
+                setContextMenu({ x: e.clientX, y: e.clientY, id: tex.id });
+              }}
               className={`aspect-square rounded-lg overflow-hidden border relative group transition-all ${tex.id === selectedId ? 'border-emerald-500 ring-1 ring-emerald-500/20' : 'border-white/5 hover:border-white/20'}`}
-              title={tex.name}
+              title={tex.isCustom ? `${tex.name} (${t('Right click to edit', '우클릭으로 수정')})` : tex.name}
             >
               {(tex.url || tex.maps?.color) ? (
                 <img src={tex.maps?.color || tex.url} className="w-full h-full object-cover" alt={tex.name} />
@@ -54,6 +70,27 @@ export const TextureSelector: React.FC<TextureSelectorProps> = ({ textures, sele
               )}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Context Menu Portal (Simplified floating div) */}
+      {contextMenu && (
+        <div 
+          className="fixed z-[9999] bg-[#1a1a1a] border border-emerald-500/30 rounded-lg shadow-2xl py-1 transform -translate-x-1/2"
+          style={{ top: contextMenu.y + 5, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button 
+            onClick={() => {
+              onEditMaterial?.(contextMenu.id);
+              setContextMenu(null);
+              setIsOpen(false);
+            }}
+            className="w-full px-4 py-2 text-[10px] font-black text-white hover:bg-emerald-500 hover:text-black transition-all flex items-center gap-2 whitespace-nowrap uppercase tracking-widest"
+          >
+            <Box size={10} />
+            {t('Modify Material', '재질 수정')}
+          </button>
         </div>
       )}
     </div>

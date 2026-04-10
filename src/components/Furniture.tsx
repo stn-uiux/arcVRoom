@@ -143,7 +143,7 @@ const SubtractionGizmo: React.FC<{
   );
 };
 
-export const Furniture: React.FC<FurnitureProps> = ({
+export const Furniture = React.memo(({
   item,
   isSelected,
   isPreviewSelected,
@@ -165,7 +165,7 @@ export const Furniture: React.FC<FurnitureProps> = ({
   isBoxSelecting = false,
   gizmoMode,
   realtimeShadows
-}) => {
+}: FurnitureProps) => {
   const meshRef = useRef<THREE.Mesh>(null!);
   const groupRef = useRef<THREE.Group>(null!);
   const { scene } = useThree();
@@ -730,7 +730,7 @@ export const Furniture: React.FC<FurnitureProps> = ({
 
   useEffect(() => {
     if (meshRef.current) {
-      meshRef.current.userData = { ...meshRef.current.userData, id: item.id, type: item.type, groupId: item.groupId };
+      meshRef.current.userData = { ...meshRef.current.userData, id: item.id, type: item.type, groupId: item.groupId, locked: item.locked };
       (meshRef.current as any).collisionGeometry = geometry;
       registerMesh(item.id, isSelected ? null : meshRef.current);
 
@@ -760,8 +760,8 @@ export const Furniture: React.FC<FurnitureProps> = ({
   }, [item.id, registerMesh, geometry, svgGeometry, isSelected, item.type, item.url, item.dimensions, item.baseDimensions, onUpdate]);
 
   useFrame(() => {
-    if (!meshRef.current || otherMeshes.length === 0) {
-      if (isColliding) setIsColliding(false);
+    // Optimization: Only run heavy collision logic if object is selected OR was already colliding
+    if (!meshRef.current || otherMeshes.length === 0 || (!isSelected && !isColliding)) {
       return;
     }
     const currentPos = groupRef.current.position.clone();
@@ -849,7 +849,7 @@ export const Furniture: React.FC<FurnitureProps> = ({
             frustumCulled={false}
           >
             <meshStandardMaterial
-              color={texConfig?.color || item.color || (isSelected || isPreviewSelected ? "#60a5fa" : "#94a3b8")}
+              color={item.color || texConfig?.color || (isSelected || isPreviewSelected ? "#60a5fa" : "#94a3b8")}
               map={finalTextures?.color || null}
               normalMap={finalTextures?.normal || null}
               roughnessMap={finalTextures?.roughness || null}
@@ -858,14 +858,14 @@ export const Furniture: React.FC<FurnitureProps> = ({
               displacementMap={finalTextures?.displacement || null}
               displacementScale={item.displacementScale ?? texConfig?.displacementScale ?? 0.1}
               emissiveMap={finalTextures?.emissive || null}
-              emissive={new THREE.Color(texConfig?.color || item.color || '#000000')}
-              emissiveIntensity={texConfig?.emissiveIntensity ?? 0}
+              emissive={new THREE.Color(item.color || texConfig?.color || '#000000')}
+              emissiveIntensity={texConfig?.emissiveIntensity ?? (item.emissiveIntensity || 0)}
               alphaMap={finalTextures?.opacity || null}
               metalness={texConfig?.metalness ?? 0.1}
               roughness={texConfig?.roughness ?? 0.7}
               envMapIntensity={item.showReflection === false ? 0 : (item.envMapIntensity ?? (isSelected || isPreviewSelected ? 0.2 : 1.0))}
-              transparent={(texConfig?.opacity ?? 1) < 0.99 || isSelected || isPreviewSelected || !!finalTextures?.opacity}
-              opacity={(isSelected || isPreviewSelected) ? 0.8 : (texConfig?.opacity ?? 1)}
+              transparent={(texConfig?.opacity ?? 1) < 0.99 || !!finalTextures?.opacity}
+              opacity={texConfig?.opacity ?? 1}
               depthWrite={(texConfig?.opacity ?? 1) > 0.8 && !finalTextures?.opacity && !isSelected}
               depthTest={true}
               alphaTest={finalTextures?.opacity ? 0.05 : 0}
@@ -884,6 +884,7 @@ export const Furniture: React.FC<FurnitureProps> = ({
           geometry={geometry as any} 
           position={model ? model.position : undefined}
           userData={{ isGizmo: true }}
+          renderOrder={1000} // Ensure it's rendered after everything else
         >
           <meshBasicMaterial
             color={isColliding ? "#FF4458" : (isBoxSelecting ? isPreviewSelected : isSelected) ? "#38CC15" : (!isBoxSelecting && ctrlPressed && hovered) ? "#eab308" : "#38CC15"}
@@ -893,8 +894,8 @@ export const Furniture: React.FC<FurnitureProps> = ({
             visible={(isBoxSelecting ? isPreviewSelected : isSelected) || (!isBoxSelecting && ctrlPressed && hovered)}
             depthTest={true}
             polygonOffset
-            polygonOffsetFactor={-1}
-            polygonOffsetUnits={-1}
+            polygonOffsetFactor={-4} // Increased factor to push it significantly towards the camera
+            polygonOffsetUnits={-4}
           />
         </mesh>
         {isSelected && item.subtractions?.map(sub => (
@@ -1003,4 +1004,15 @@ export const Furniture: React.FC<FurnitureProps> = ({
       )}
     </>
   );
-};
+}, (prev, next) => {
+  return (
+    prev.isSelected === next.isSelected &&
+    prev.isPreviewSelected === next.isPreviewSelected &&
+    prev.item === next.item &&
+    prev.customTextures === next.customTextures &&
+    prev.gizmoMode === next.gizmoMode &&
+    prev.selectedSubId === next.selectedSubId &&
+    prev.isBoxSelecting === next.isBoxSelecting &&
+    prev.multiSelect === next.multiSelect
+  );
+});

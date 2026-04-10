@@ -107,18 +107,19 @@ export const usePresetMaterials = (): [TextureConfig[], () => void] => {
 // Re-export for backward compatibility
 export const PRESET_MATERIALS = _cachedMaterials;
 
-export const MaterialsLibrary: React.FC<MaterialsLibraryProps> = ({ onAddTexture }) => {
+export const MaterialsLibrary: React.FC<MaterialsLibraryProps> = ({ onAddTexture, language = 'ko' }) => {
   const [materials, refresh] = usePresetMaterials();
+  const t = (en: string, ko: string) => (language === 'ko' ? ko : en);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2.5 mb-1 px-1.5 h-7">
         <Library className="w-3.5 h-3.5 text-emerald-500" />
-        <h2 className="text-xs font-black uppercase tracking-widest text-white/50">Materials Library</h2>
+        <h2 className="text-xs font-black uppercase tracking-widest text-white/50">{t('Materials Library', '재질 라이브러리')}</h2>
         <button
           onClick={refresh}
           className="ml-auto p-1 text-white/20 hover:text-emerald-500 transition-colors rounded-lg hover:bg-emerald-500/10"
-          title="Refresh materials from /public/materials"
+          title={t('Refresh materials from /public/materials', '/public/materials에서 재질 새로고침')}
         >
           <RefreshCw size={12} />
         </button>
@@ -127,7 +128,7 @@ export const MaterialsLibrary: React.FC<MaterialsLibraryProps> = ({ onAddTexture
       <div className="grid grid-cols-2 gap-3 px-1">
         {materials.length === 0 && (
           <div className="col-span-2 py-8 text-center border-2 border-dashed border-white/5 rounded-2xl">
-            <p className="text-[10px] text-white/20 font-black uppercase tracking-widest">No materials found in /public/materials</p>
+            <p className="text-[10px] text-white/20 font-black uppercase tracking-widest">{t('No materials found in /public/materials', '/public/materials 경로에서 재질을 찾을 수 없습니다')}</p>
           </div>
         )}
         {materials.map((mat) => (

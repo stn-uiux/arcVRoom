@@ -7,19 +7,38 @@ interface TextureManagerPanelProps {
   onUpdate: (id: string, updates: Partial<TextureConfig>) => void;
   onDelete: (id: string) => void;
   onAddNew: () => void;
+  language?: 'en' | 'ko';
+  expandedId?: string | null;
+  onExpandedChange?: (id: string | null) => void;
 }
 
-export const TextureManagerPanel: React.FC<TextureManagerPanelProps> = ({ textures = [], onUpdate, onDelete, onAddNew }) => {
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+export const TextureManagerPanel: React.FC<TextureManagerPanelProps> = ({ 
+  textures = [], onUpdate, onDelete, onAddNew, language = 'ko', 
+  expandedId: externalExpandedId, onExpandedChange 
+}) => {
+  const [internalExpandedId, setInternalExpandedId] = useState<string | null>(null);
+  const t = (en: string, ko: string) => (language === 'ko' ? ko : en);
+
+  const expandedId = externalExpandedId !== undefined ? externalExpandedId : internalExpandedId;
+  const setExpandedId = (id: string | null) => {
+    if (onExpandedChange) onExpandedChange(id);
+    setInternalExpandedId(id);
+  };
+
+  React.useEffect(() => {
+    if (externalExpandedId) {
+      setInternalExpandedId(externalExpandedId);
+    }
+  }, [externalExpandedId]);
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between mb-1 px-1">
-        <span className="text-[9px] font-black uppercase text-white/40 tracking-widest">Custom Materials</span>
-        <button onClick={onAddNew} className="p-1.5 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-black rounded-lg transition-all" title="Add New Material"><Plus size={12} /></button>
+        <span className="text-[9px] font-black uppercase text-white/40 tracking-widest">{t('Custom Materials', '커스텀 재질')}</span>
+        <button onClick={onAddNew} className="p-1.5 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-black rounded-lg transition-all" title={t('Add New Material', '새 재질 추가')}><Plus size={12} /></button>
       </div>
       <div className="space-y-1.5">
-        {textures && textures.length === 0 && <div className="text-[9px] text-white/20 italic text-center py-3 border border-white/5 border-dashed rounded-xl">No custom textures</div>}
+        {textures && textures.length === 0 && <div className="text-[9px] text-white/20 italic text-center py-3 border border-white/5 border-dashed rounded-xl">{t('No custom textures', '등록된 커스텀 재질이 없습니다')}</div>}
         {textures.map((tex) => (
           <div key={tex.id} className={`bg-white/2 rounded-xl border transition-all ${expandedId === tex.id ? 'border-emerald-500/30 bg-white/5' : 'border-white/5 hover:bg-white/5'}`}>
             <div className="flex items-center justify-between p-2.5 cursor-pointer" onClick={() => setExpandedId(expandedId === tex.id ? null : tex.id)}>

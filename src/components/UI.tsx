@@ -131,8 +131,11 @@ export const UI: React.FC<UIProps> = ({
   const [showFloorplanModal, setShowFloorplanModal] = useState(false);
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [editingNameValue, setEditingNameValue] = useState("");
+  const [jumpToMaterialId, setJumpToMaterialId] = useState<string | null>(null);
   const lastSelectedIdRef = useRef<string | null>(null);
   const explicitSelectRef = useRef(false);
+
+  const t = (en: string, ko: string) => state.language === 'ko' ? ko : en;
 
   const EditableNumber: React.FC<{ value: number, onChange: (val: number) => void, precision?: number }> = ({ value, onChange, precision = 1 }) => {
     const [isEditing, setIsEditing] = useState(false);
@@ -269,7 +272,7 @@ export const UI: React.FC<UIProps> = ({
     { id: 'none', name: 'None', color: '#94a3b8' },
     ...staticTextures, 
     ...presetMaterials.map(m => ({ ...m, name: `[Library] ${m.name}` })),
-    ...state.customTextures
+    ...(state.customTextures || []).map(t => ({ ...t, isCustom: true }))
   ];
 
   const updateField = (id: string, field: 'position' | 'scale' | 'rotation', index: number, value: number) => {
@@ -291,7 +294,7 @@ export const UI: React.FC<UIProps> = ({
   return (
     <>
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-40">
-        <div className="absolute top-6 left-6 pointer-events-auto">
+        <div className="absolute top-6 left-6 pointer-events-auto flex items-center gap-3">
           <div className="flex items-center gap-3 glass-panel px-4 py-2 rounded-full border border-white/10 shadow-2xl">
             <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center">
               <Box className="w-5 h-5 text-black" />
@@ -300,6 +303,21 @@ export const UI: React.FC<UIProps> = ({
               <h1 className="text-sm font-bold tracking-tight text-white leading-tight">arcVRoom</h1>
               <p className="text-[10px] text-white/50 font-mono">Architect Visual Room</p>
             </div>
+          </div>
+
+          <div className="flex bg-black/40 backdrop-blur-xl border border-white/10 rounded-full p-1 shadow-2xl">
+            <button
+              onClick={() => onUpdateState({ language: 'ko' })}
+              className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${state.language === 'ko' ? 'bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'text-white/40 hover:text-white/70'}`}
+            >
+              KO
+            </button>
+            <button
+              onClick={() => onUpdateState({ language: 'en' })}
+              className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${state.language === 'en' ? 'bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'text-white/40 hover:text-white/70'}`}
+            >
+              EN
+            </button>
           </div>
         </div>
 
@@ -405,7 +423,7 @@ export const UI: React.FC<UIProps> = ({
               <rect x="3" y="3" width="18" height="18" rx="2" />
               <path d="M3 9h18M9 3v18" />
             </svg>
-            <span className="text-[10px] font-black uppercase tracking-widest">Create SVG Floorplan</span>
+            <span className="text-[10px] font-black uppercase tracking-widest">{t('Create SVG Floorplan', 'SVG 평면도 생성')}</span>
           </button>
         </div>
 
@@ -420,7 +438,7 @@ export const UI: React.FC<UIProps> = ({
               <div className="glass-panel px-8 py-3 rounded-full border border-white/10 opacity-90 flex items-center gap-3 shadow-2xl">
                 <Upload className="w-4 h-4 text-emerald-500" />
                 <span className="text-[11px] text-white/80 font-mono tracking-widest uppercase font-bold">
-                  Drag & Drop .gltf, .glb, or .svg to load
+                  {t('Drag & Drop .gltf, .glb, or .svg to load', '.gltf, .glb, 또는 .svg 파일을 드래그하여 불러오세요')}
                 </span>
               </div>
             </motion.div>
@@ -440,28 +458,28 @@ export const UI: React.FC<UIProps> = ({
             className={`flex-1 py-2 text-[9px] font-black uppercase tracking-widest transition-all relative ${activeTab === 'objects' ? 'text-emerald-500 bg-white/5' : 'text-white/30 hover:text-white/60'}`}
           >
             {activeTab === 'objects' && <motion.div layoutId="tab-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500" />}
-            Objects
+            {t('Objects', '오브젝트')}
           </button>
           <button
             onClick={() => setActiveTab('lights')}
             className={`flex-1 py-2 text-[9px] font-black uppercase tracking-widest transition-all relative ${activeTab === 'lights' ? 'text-emerald-500 bg-white/5' : 'text-white/30 hover:text-white/60'}`}
           >
             {activeTab === 'lights' && <motion.div layoutId="tab-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500" />}
-            Lights
+            {t('Lights', '조명')}
           </button>
           <button
             onClick={() => setActiveTab('materials')}
             className={`flex-1 py-2 text-[9px] font-black uppercase tracking-widest transition-all relative ${activeTab === 'materials' ? 'text-emerald-500 bg-white/5' : 'text-white/30 hover:text-white/60'}`}
           >
             {activeTab === 'materials' && <motion.div layoutId="tab-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500" />}
-            Materials
+            {t('Materials', '재질')}
           </button>
           <button
             onClick={() => setActiveTab('settings')}
             className={`flex-1 py-2 text-[9px] font-black uppercase tracking-widest transition-all relative ${activeTab === 'settings' ? 'text-emerald-500 bg-white/5' : 'text-white/30 hover:text-white/60'}`}
           >
             {activeTab === 'settings' && <motion.div layoutId="tab-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500" />}
-            Scene
+            {t('Scene', '설정')}
           </button>
         </div>
 
@@ -472,7 +490,7 @@ export const UI: React.FC<UIProps> = ({
                 <section className="space-y-1.5">
                   <div className="flex items-center gap-2.5 mb-1 px-1.5 h-7">
                     <Box className="w-3.5 h-3.5 text-emerald-500" />
-                    <h2 className="text-xs font-black uppercase tracking-widest text-white/50">Primitives</h2>
+                    <h2 className="text-xs font-black uppercase tracking-widest text-white/50">{t('Primitives', '도형')}</h2>
                   </div>
                   <div className="grid grid-cols-3 gap-1">
                     {[
@@ -494,7 +512,7 @@ export const UI: React.FC<UIProps> = ({
                 <section>
                   <div className="flex items-center gap-2.5 mb-1 px-1.5 h-7">
                     <Library className="w-3.5 h-3.5 text-emerald-500" />
-                    <h2 className="text-xs font-black uppercase tracking-widest text-white/300">Asset Library</h2>
+                    <h2 className="text-xs font-black uppercase tracking-widest text-white/300">{t('Asset Library', '에셋 라이브러리')}</h2>
                   </div>
                   <AssetLibrary onSelect={onAddItem} />
                 </section>
@@ -503,7 +521,7 @@ export const UI: React.FC<UIProps> = ({
                   <div id="scene-objects-layer" className="flex items-center justify-between mb-1 px-1.5 h-7 scroll-mt-4">
                     <div className="flex items-center gap-2.5">
                       <Layers className="w-3.5 h-3.5 text-emerald-500" />
-                      <h2 className="text-xs font-black uppercase tracking-widest text-white/50">Scene Objects</h2>
+                      <h2 className="text-xs font-black uppercase tracking-widest text-white/50">{t('Scene Objects', '씬 오브젝트')}</h2>
                     </div>
                     <div className="flex gap-1.5">
                       <button
@@ -738,13 +756,13 @@ export const UI: React.FC<UIProps> = ({
                     <div className="flex items-center justify-between bg-emerald-500/5 p-2 rounded-lg border border-emerald-500/10">
                       <div className="flex items-center gap-2">
                         <div className="w-1 h-1 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981] animate-pulse" />
-                        <h2 className="text-[9px] font-black uppercase tracking-widest text-emerald-500">Properties</h2>
+                        <h2 className="text-[9px] font-black uppercase tracking-widest text-emerald-500">{t('Properties', '속성')}</h2>
                       </div>
                     </div>
 
                     <div className="space-y-2.5">
                       <div className="space-y-1.5">
-                        <span className="text-[9px] text-white/30 font-black uppercase tracking-widest">Identity</span>
+                        <span className="text-[9px] text-white/30 font-black uppercase tracking-widest">{t('Identity', '이름')}</span>
                         <input
                           type="text"
                           value={selectedItem.name}
@@ -755,9 +773,9 @@ export const UI: React.FC<UIProps> = ({
 
                       <div className="space-y-4 pt-1">
                         {[
-                          { field: 'position', icon: <Move />, label: 'Position' },
-                          { field: 'scale', icon: <Scaling />, label: 'Scale' },
-                          { field: 'rotation', icon: <RotateCw />, label: 'Rotation' }
+                          { field: 'position', icon: <Move />, label: t('Position', '위치') },
+                          { field: 'scale', icon: <Scaling />, label: t('Scale', '크기') },
+                          { field: 'rotation', icon: <RotateCw />, label: t('Rotation', '회전') }
                         ].map(config => (
                           <div key={config.field} className="space-y-1.5">
                             <div className="flex items-center gap-1.5 pr-2">
@@ -768,10 +786,10 @@ export const UI: React.FC<UIProps> = ({
                               {['X', 'Y', 'Z'].map((l, i) => (
                                 <div key={l} className="relative group">
                                   <input
-                                    type="number" step={config.field === 'rotation' ? "1" : "0.1"}
+                                    type="number" step={config.field === 'rotation' ? "1" : "0.001"}
                                     value={config.field === 'rotation'
                                       ? Math.round((selectedItem.rotation[i] * 180) / Math.PI)
-                                      : Number(selectedItem[config.field as 'position' | 'scale' | 'rotation'][i].toFixed(2))
+                                      : Number(selectedItem[config.field as 'position' | 'scale' | 'rotation'][i].toFixed(3))
                                     }
                                     onChange={(e) => {
                                       const val = parseFloat(e.target.value) || 0;
@@ -793,14 +811,14 @@ export const UI: React.FC<UIProps> = ({
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
                             <Box className="w-3 h-3 text-emerald-500/40" />
-                            <span className="text-[8px] text-white/30 font-black uppercase tracking-widest">Dimensions</span>
+                            <span className="text-[8px] text-white/30 font-black uppercase tracking-widest">{t('Dimensions', '치수')}</span>
                           </div>
                           <div className="grid grid-cols-3 gap-1.5">
                             {['W', 'H', 'D'].map((l, i) => (
                               <div key={l} className="relative group">
                                 <input
-                                  type="number" step="0.1"
-                                  value={selectedItem.dimensions?.[i] ?? 1}
+                                  type="number" step="0.001"
+                                  value={Number((selectedItem.dimensions?.[i] ?? 1).toFixed(3))}
                                   onChange={(e) => {
                                     const dims = [...(selectedItem.dimensions || [1, 1, 1])] as [number, number, number];
                                     const val = parseFloat(e.target.value);
@@ -964,6 +982,11 @@ export const UI: React.FC<UIProps> = ({
                                   }
                                   onUpdateItem(selectedItem.id, updates);
                                 }}
+                                onEditMaterial={(mid) => {
+                                  setActiveTab('materials');
+                                  setJumpToMaterialId(mid);
+                                }}
+                                language={state.language}
                               />
                             </div>
 
@@ -985,7 +1008,7 @@ export const UI: React.FC<UIProps> = ({
                                     {/* Density (Density) */}
                                     <div className="space-y-2">
                                       <div className="flex justify-between text-[9px] font-black text-white/30 uppercase tracking-widest">
-                                        <span>Tiling Density</span>
+                                        <span>{t('Tiling Density', '개체 타일 밀도')}</span>
                                       </div>
                                       <div className="grid grid-cols-2 gap-2">
                                         {[0, 1].map(idx => (
@@ -1019,7 +1042,7 @@ export const UI: React.FC<UIProps> = ({
                                     {/* Offset */}
                                     <div className="space-y-2">
                                       <div className="flex justify-between text-[9px] font-black text-white/30 uppercase tracking-widest">
-                                        <span>Tiling Offset</span>
+                                        <span>{t('Tiling Offset', '개체 타일 오프셋')}</span>
                                         <button 
                                           onClick={() => onUpdateState({ gizmoMode: state.gizmoMode === 'texture' ? 'translate' : 'texture' })}
                                           className={`px-1.5 py-0.5 rounded text-[7px] font-black uppercase transition-all ${state.gizmoMode === 'texture' ? 'bg-emerald-500 text-black' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}
@@ -1091,7 +1114,7 @@ export const UI: React.FC<UIProps> = ({
                             <div className="flex items-center justify-between px-1">
                               <div className="flex items-center gap-2">
                                 <Scissors className="w-3 h-3 text-emerald-500/40" />
-                                <span className="text-[9px] text-white/30 font-black uppercase tracking-widest">Subtraction System</span>
+                                <span className="text-[9px] text-white/30 font-black uppercase tracking-widest">{t('Subtraction System', '객체 결합 및 제거')}</span>
                               </div>
                               <button
                                 onClick={() => {
@@ -1101,7 +1124,7 @@ export const UI: React.FC<UIProps> = ({
                                 }}
                                 className="px-2 py-0.5 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-black rounded-lg text-[8px] font-black uppercase tracking-widest border border-emerald-500/20 transition-all"
                               >
-                                Add Hole
+                                {t('Add Hole', '구멍 추가')}
                               </button>
                             </div>
                             <div className="space-y-2">
@@ -1193,7 +1216,7 @@ export const UI: React.FC<UIProps> = ({
                 <section>
                   <div className="flex items-center gap-2.5 mb-1 px-1.5 h-7">
                     <Lightbulb className="w-3.5 h-3.5 text-emerald-500" />
-                    <h2 className="text-xs font-black uppercase tracking-widest text-white/50">Lighting</h2>
+                    <h2 className="text-xs font-black uppercase tracking-widest text-white/50">{t('Lighting', '조명 설정')}</h2>
                   </div>
 
                   <div className="grid grid-cols-4 gap-1.5">
@@ -1209,7 +1232,7 @@ export const UI: React.FC<UIProps> = ({
                         className="flex flex-col items-center gap-1.5 p-2 bg-white/[0.03] hover:bg-white/10 border border-white/5 rounded-xl transition-all group"
                       >
                         <div className="text-white/30 group-hover:text-white">{btn.icon}</div>
-                        <span className="text-[7px] font-black uppercase text-white/30 group-hover:text-white tracking-widest">{btn.type.slice(0, 3)}</span>
+                        <span className="text-[7px] font-black uppercase text-white/30 group-hover:text-white tracking-widest">{t(btn.type.slice(0, 3), btn.type === 'point' ? '점' : btn.type === 'spot' ? '스포트' : btn.type === 'directional' ? '직사' : '주변')}</span>
                       </button>
                     ))}
                   </div>
@@ -1219,7 +1242,7 @@ export const UI: React.FC<UIProps> = ({
                   <div id="scene-lights-layer" className="flex items-center justify-between mb-1 px-1.5 h-7 scroll-mt-4">
                     <div className="flex items-center gap-2.5">
                       <Layers className="w-3.5 h-3.5 text-emerald-500" />
-                      <h2 className="text-xs font-black uppercase tracking-widest text-white/50">Scene Lights</h2>
+                      <h2 className="text-xs font-black uppercase tracking-widest text-white/50">{t('Scene Lights', '씬 라이트')}</h2>
                     </div>
                     <div className="flex gap-1.5">
                       <button
@@ -1319,7 +1342,7 @@ export const UI: React.FC<UIProps> = ({
                       <div className="flex items-center justify-between bg-emerald-500/5 p-3 rounded-xl border border-emerald-500/10">
                         <div className="flex items-center gap-3">
                           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981] animate-pulse" />
-                          <h2 className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Properties</h2>
+                          <h2 className="text-[10px] font-black uppercase tracking-widest text-emerald-500">{t('Properties', '속성')}</h2>
                         </div>
                         <span className="text-[8px] font-mono text-white/30 uppercase tracking-widest">{selectedLight.type} module</span>
                       </div>
@@ -1327,13 +1350,13 @@ export const UI: React.FC<UIProps> = ({
                       <div className="space-y-5">
                         {selectedLight.type !== 'ambient' && (
                           <div className="space-y-4">
-                            <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.2rem]">Spatial Matrix ({unit})</span>
+                            <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.2rem]">{t('Spatial Matrix', '공간 좌표')} ({unit})</span>
                             <div className="grid grid-cols-3 gap-2">
                               {[0, 1, 2].map(i => (
                                 <div key={i} className="relative group">
                                   <input
-                                    type="number" step={unit === 'm' ? "0.1" : "10"}
-                                    value={unit === 'm' ? Number((selectedLight.position?.[i] || 0).toFixed(2)) : Number(((selectedLight.position?.[i] || 0) * 100).toFixed(0))}
+                                    type="number" step={unit === 'm' ? "0.001" : "1"}
+                                    value={unit === 'm' ? Number((selectedLight.position?.[i] || 0).toFixed(3)) : Number(((selectedLight.position?.[i] || 0) * 100).toFixed(1))}
                                     onChange={(e) => {
                                       const val = parseFloat(e.target.value) || 0;
                                       const pos = [...(selectedLight.position || [0, 0, 0])] as [number, number, number];
@@ -1352,7 +1375,7 @@ export const UI: React.FC<UIProps> = ({
                         <div className="space-y-4">
                           <div className="space-y-2">
                             <div className="flex justify-between text-[10px] font-black text-white/30 uppercase tracking-[0.15em]">
-                              <span>Flux Intensity</span>
+                              <span>{t('Flux Intensity', '광도 강도')}</span>
                               <span className="text-emerald-500">{selectedLight.intensity.toFixed(2)}</span>
                             </div>
                             <input
@@ -1382,7 +1405,7 @@ export const UI: React.FC<UIProps> = ({
                             <>
                               <div className="space-y-2">
                                 <div className="flex justify-between text-[10px] font-black text-white/30 uppercase tracking-[0.15em]">
-                                  <span>Aperture Angle</span>
+                                  <span>{t('Aperture Angle', '조사 각도')}</span>
                                   <span className="text-emerald-500">{((selectedLight.angle || 0) * (180 / Math.PI)).toFixed(1)}°</span>
                                 </div>
                                 <input
@@ -1394,7 +1417,7 @@ export const UI: React.FC<UIProps> = ({
                               </div>
                               <div className="space-y-2">
                                 <div className="flex justify-between text-[10px] font-black text-white/30 uppercase tracking-[0.15em]">
-                                  <span>Penumbra (Softness)</span>
+                                  <span>{t('Penumbra (Softness)', '반영 (부드러움)')}</span>
                                   <span className="text-emerald-500">{(selectedLight.penumbra || 0).toFixed(2)}</span>
                                 </div>
                                 <input
@@ -1410,7 +1433,7 @@ export const UI: React.FC<UIProps> = ({
                           {(selectedLight.type === 'point' || selectedLight.type === 'spot') && (
                             <div className="space-y-2">
                               <div className="flex justify-between text-[10px] font-black text-white/30 uppercase tracking-[0.15em]">
-                                <span>Beam Decay</span>
+                                <span>{t('Beam Decay', '광량 감쇄')}</span>
                                 <span className="text-emerald-500">{(selectedLight.decay || 1).toFixed(2)}</span>
                               </div>
                               <input
@@ -1426,7 +1449,7 @@ export const UI: React.FC<UIProps> = ({
                             <div className="space-y-2 mt-4 mb-2 p-3 bg-black/40 rounded-xl border border-white/5 shadow-inner">
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-[10px] font-black text-white/50 uppercase tracking-widest leading-none mt-0.5">Cast Shadows</span>
+                                  <span className="text-[10px] font-black text-white/50 uppercase tracking-widest leading-none mt-0.5">{t('Cast Shadows', '그림자 생성')}</span>
                                 </div>
                                 <button
                                   onClick={() => onUpdateLight(selectedLight.id, { castShadow: selectedLight.castShadow === false ? true : false })}
@@ -1439,7 +1462,7 @@ export const UI: React.FC<UIProps> = ({
                               {selectedLight.castShadow !== false && (
                                 <div className="pt-3 mt-1 border-t border-white/10 space-y-2">
                                   <div className="flex justify-between text-[10px] font-black text-white/30 uppercase tracking-[0.15em]">
-                                    <span>Shadow Softness</span>
+                                    <span>{t('Shadow Softness', '그림자 부드러움')}</span>
                                     <span className="text-emerald-500">{Number(selectedLight.shadowRadius ?? 2).toFixed(1)}</span>
                                   </div>
                                   <input
@@ -1455,7 +1478,7 @@ export const UI: React.FC<UIProps> = ({
 
                           <div className="flex items-center justify-between p-4 bg-black/40 rounded-2xl border border-white/5 shadow-inner mt-2">
                             <div className="flex flex-col">
-                              <span className="text-[10px] font-black text-white/50 uppercase tracking-widest leading-none mb-1">Chromaticity Vector</span>
+                              <span className="text-[10px] font-black text-white/50 uppercase tracking-widest leading-none mb-1">{t('Chromaticity Vector', '색도 벡터')}</span>
                               <span className="text-[9px] font-mono text-emerald-500 uppercase tracking-widest">{selectedLight.color}</span>
                             </div>
                             <div className="relative w-10 h-10 rounded-xl overflow-hidden border border-white/20 hover:border-emerald-500 transition-all shadow-lg">
@@ -1489,6 +1512,7 @@ export const UI: React.FC<UIProps> = ({
                 {/* 1. Materials Library Section */}
                 <section>
                   <MaterialsLibrary 
+                    language={state.language || 'ko'}
                     onAddTexture={(tex) => {
                       onUpdateState({ customTextures: [...(state.customTextures || []), tex] });
                     }}
@@ -1500,7 +1524,7 @@ export const UI: React.FC<UIProps> = ({
                   <div className="flex items-center justify-between mb-4 px-1.5 h-7">
                     <div className="flex items-center gap-2.5">
                       <Layers className="w-3.5 h-3.5 text-emerald-500" />
-                      <h2 className="text-xs font-black uppercase tracking-widest text-white/50">Custom Materials</h2>
+                      <h2 className="text-xs font-black uppercase tracking-widest text-white/50">{t('Custom Materials', '커스텀 재질')}</h2>
                     </div>
                     <button 
                       onClick={() => {
@@ -1515,18 +1539,21 @@ export const UI: React.FC<UIProps> = ({
                   </div>
                   <TextureManagerPanel
                     textures={state.customTextures || []}
+                    expandedId={jumpToMaterialId}
+                    onExpandedChange={(id) => {
+                      if (id !== jumpToMaterialId) setJumpToMaterialId(id);
+                    }}
                     onUpdate={(id, updates) => {
-                      const newTex = (state.customTextures || []).map(t => t.id === id ? { ...t, ...updates } : t);
-                      onUpdateState({ customTextures: newTex });
+                      const next = (state.customTextures || []).map(t => t.id === id ? { ...t, ...updates } : t);
+                      onUpdateState({ customTextures: next });
                     }}
-                    onDelete={(id) => {
-                      onUpdateState({ customTextures: (state.customTextures || []).filter(t => t.id !== id) });
-                    }}
+                    onDelete={(id) => onUpdateState({ customTextures: (state.customTextures || []).filter(t => t.id !== id) })}
                     onAddNew={() => {
                       const newId = uuidv4();
-                      const newTex = { id: newId, name: 'New Material', color: '#ffffff', opacity: 1, metalness: 0.1, roughness: 0.7 };
+                      const newTex = { id: newId, name: 'New Material', color: '#ffffff', opacity: 1, metalness: 0.1, roughness: 0.7, isCustom: true };
                       onUpdateState({ customTextures: [...(state.customTextures || []), newTex] });
                     }}
+                    language={state.language}
                   />
                 </section>
               </div>
@@ -1538,7 +1565,7 @@ export const UI: React.FC<UIProps> = ({
                 <section>
                   <div className="flex items-center gap-2.5 mb-1 px-1.5 h-7">
                     <Sun className="w-3.5 h-3.5 text-emerald-500" />
-                    <h2 className="text-xs font-black uppercase tracking-widest text-white/50">Environment</h2>
+                    <h2 className="text-xs font-black uppercase tracking-widest text-white/50">{t('Environment', '환경 설정')}</h2>
                   </div>
                   <div className="grid grid-cols-2 gap-1.5">
                     {['city', 'sunset', 'night', 'warehouse'].map(env => (
@@ -1555,7 +1582,7 @@ export const UI: React.FC<UIProps> = ({
                   <div className="mt-4 space-y-4 px-1.5">
                     <div className="space-y-2">
                        <div className="flex justify-between text-[9px] font-black text-white/50 uppercase tracking-widest leading-none">
-                         <span>Intensity</span>
+                         <span>{t('Intensity', '강도')}</span>
                          <span className="text-emerald-500">{(state.intensity || 0).toFixed(2)}</span>
                        </div>
                        <input
@@ -1568,7 +1595,7 @@ export const UI: React.FC<UIProps> = ({
 
                     <div className="space-y-2">
                        <div className="flex justify-between text-[9px] font-black text-white/50 uppercase tracking-widest leading-none">
-                         <span>Background Blur</span>
+                         <span>{t('Background Blur', '배경 흐림')}</span>
                          <span className="text-emerald-500">{(state.environmentBlur || 0).toFixed(2)}</span>
                        </div>
                        <input
@@ -1580,10 +1607,10 @@ export const UI: React.FC<UIProps> = ({
                     </div>
                     <div className="space-y-1.5 mt-4">
                       {[
-                        { label: 'Environment', sub: 'Enable HDRI lighting source', state: state.showEnvironment, key: 'showEnvironment' },
-                        { label: 'Background Color', sub: 'Solid canvas backdrop', state: state.showBackgroundColor, key: 'showBackgroundColor' },
-                        { label: 'Dynamic Shadows', sub: 'Ray-based light projections', state: state.realtimeShadows, key: 'realtimeShadows' },
-                        { label: 'Ground Grid', sub: 'Scene alignment reference', state: state.showGrid, key: 'showGrid' }
+                        { label: t('Environment', '환경 광원'), sub: t('Enable HDRI lighting source', 'HDRI 조명 활성화'), state: state.showEnvironment, key: 'showEnvironment' },
+                        { label: t('Background Color', '배경 색상'), sub: t('Solid canvas backdrop', '단색 배경 채우기'), state: state.showBackgroundColor, key: 'showBackgroundColor' },
+                        { label: t('Dynamic Shadows', '동적 그림자'), sub: t('Ray-based light projections', '빛 투사에 따른 실시간 그림자'), state: state.realtimeShadows, key: 'realtimeShadows' },
+                        { label: t('Ground Grid', '바닥 그리드'), sub: t('Scene alignment reference', '배치 가이드 그리드 표시'), state: state.showGrid, key: 'showGrid' }
                       ].map((item) => (
                         <div key={item.key} className="space-y-3 p-3 bg-black/40 rounded-xl border border-white/5 shadow-inner">
                           <div className="flex items-center justify-between">
@@ -1602,7 +1629,7 @@ export const UI: React.FC<UIProps> = ({
                           {item.key === 'showBackgroundColor' && item.state && (
                             <div className="pt-3 border-t border-white/5 space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
                                <div className="flex justify-between text-[8px] font-black text-white/30 uppercase tracking-widest leading-none">
-                                  <span>Backdrop Color</span>
+                                  <span>{t('Backdrop Color', '배경 색상')}</span>
                                   <span className="text-emerald-500 font-mono uppercase">{state.backgroundColor}</span>
                                </div>
                                <input
@@ -1618,7 +1645,7 @@ export const UI: React.FC<UIProps> = ({
                             <div className="pt-3 border-t border-white/5 space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
                                <div className="space-y-2">
                                   <div className="flex justify-between text-[8px] font-black text-white/30 uppercase tracking-widest leading-none">
-                                    <span>Grid Color</span>
+                                    <span>{t('Grid Color', '그리드 색상')}</span>
                                     <span className="text-emerald-500 font-mono uppercase">{state.gridColor}</span>
                                   </div>
                                   <div className="flex items-center gap-3">
@@ -1642,13 +1669,13 @@ export const UI: React.FC<UIProps> = ({
                 <section className="pt-6 border-t border-white/5 space-y-4">
                   <div className="flex items-center gap-2.5 mb-1 px-1.5 h-7">
                     <Maximize className="w-3.5 h-3.5 text-emerald-500" />
-                    <h2 className="text-xs font-black uppercase tracking-widest text-white/50">Post Processing</h2>
+                    <h2 className="text-xs font-black uppercase tracking-widest text-white/50">{t('Post Processing', '후처리 설정')}</h2>
                   </div>
                   
                   <div className="space-y-4 px-1.5">
                     <div className="space-y-2">
                        <div className="flex justify-between text-[9px] font-black text-white/50 uppercase tracking-widest leading-none">
-                         <span>Vignette Size</span>
+                         <span>{t('Vignette Size', '비네트 크기')}</span>
                          <span className="text-emerald-500">{(state.vignetteSize || 0).toFixed(2)}</span>
                        </div>
                        <input
@@ -1661,7 +1688,7 @@ export const UI: React.FC<UIProps> = ({
                     
                     <div className="space-y-2">
                        <div className="flex justify-between text-[9px] font-black text-white/50 uppercase tracking-widest leading-none">
-                         <span>Vignette Darkness</span>
+                         <span>{t('Vignette Darkness', '비네트 어두움')}</span>
                          <span className="text-emerald-500">{(state.vignetteDarkness || 0).toFixed(2)}</span>
                        </div>
                        <input
@@ -1674,7 +1701,7 @@ export const UI: React.FC<UIProps> = ({
 
                     <div className="space-y-2">
                        <div className="flex justify-between text-[9px] font-black text-white/50 uppercase tracking-widest leading-none">
-                         <span>Bloom Intensity</span>
+                         <span>{t('Bloom Intensity', '블룸 강도')}</span>
                          <span className="text-emerald-500">{(state.bloomIntensity || 0).toFixed(2)}</span>
                        </div>
                        <input
@@ -1691,12 +1718,12 @@ export const UI: React.FC<UIProps> = ({
                 <section className="pt-6 border-t border-white/5 space-y-3">
                   <div className="flex items-center gap-2.5 mb-1 px-1.5 h-7">
                     <Settings className="w-3.5 h-3.5 text-emerald-500" />
-                    <h2 className="text-xs font-black uppercase tracking-widest text-white/50">Scene Management</h2>
+                    <h2 className="text-xs font-black uppercase tracking-widest text-white/50">{t('Scene Management', '씬 관리')}</h2>
                   </div>
                   <div className="space-y-2">
                     <div className="flex flex-col gap-1.5">
                       <div className="text-[8px] font-black text-white/30 uppercase tracking-[0.2em] px-1.5 mb-1 flex items-center gap-2">
-                        <Download size={10} /> GLTF Export Options
+                        <Download size={10} /> {t('GLTF Export Options', 'GLTF 내보내기 옵션')}
                       </div>
                       <div className="grid grid-cols-1 gap-1.5">
                         <button
@@ -1705,7 +1732,7 @@ export const UI: React.FC<UIProps> = ({
                         >
                           <div className="flex items-center gap-3">
                             <Layers size={14} className="group-hover:scale-110 transition-transform" /> 
-                            <span>Export All</span>
+                            <span>{t('Export All', '전체 내보내기')}</span>
                           </div>
                           <span className="text-[7px] opacity-50 font-mono">.GLB</span>
                         </button>
@@ -1715,13 +1742,13 @@ export const UI: React.FC<UIProps> = ({
                             onClick={() => onExport('objects')}
                             className="flex items-center justify-center gap-2 px-3 py-2.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white font-black uppercase tracking-widest rounded-xl text-[8px] transition-all border border-white/5 group"
                           >
-                            <Box size={12} /> Objects Only
+                            <Box size={12} /> {t('Objects Only', '오브젝트만')}
                           </button>
                           <button
                             onClick={() => onExport('lights')}
                             className="flex items-center justify-center gap-2 px-3 py-2.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white font-black uppercase tracking-widest rounded-xl text-[8px] transition-all border border-white/5 group"
                           >
-                            <Lightbulb size={12} /> Lights Only
+                            <Lightbulb size={12} /> {t('Lights Only', '조명만')}
                           </button>
                         </div>
                       </div>
@@ -1729,17 +1756,17 @@ export const UI: React.FC<UIProps> = ({
 
                     <div className="pt-3 border-t border-white/5 mt-2">
                       <div className="text-[8px] font-black text-white/30 uppercase tracking-[0.2em] px-1.5 mb-2 flex items-center gap-2">
-                        <Upload size={10} /> Scene Configuration
+                        <Upload size={10} /> {t('Scene Configuration', '씬 구성 설정')}
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           onClick={() => onExport('json')}
                           className="flex items-center justify-center gap-3 px-4 py-3 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white font-black uppercase tracking-widest rounded-xl text-[9px] transition-all border border-white/5 group"
                         >
-                          <Download size={14} /> Export JSON
+                          <Download size={14} /> {t('Export JSON', 'JSON 내보내기')}
                         </button>
                         <label className="flex items-center justify-center gap-3 px-4 py-3 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white font-black uppercase tracking-widest rounded-xl text-[9px] transition-all border border-white/5 cursor-pointer group">
-                          <Upload size={14} /> Import JSON
+                          <Upload size={14} /> {t('Import JSON', 'JSON 불러오기')}
                           <input type="file" accept=".json" className="hidden" onChange={onImport} />
                         </label>
                       </div>
@@ -1751,10 +1778,10 @@ export const UI: React.FC<UIProps> = ({
                 <div className="mt-6 pt-6 border-t border-white/5 opacity-50">
                   <div className="bg-black/40 p-4 rounded-2xl border border-white/5 shadow-inner">
                     <p className="text-[8px] font-mono leading-relaxed text-white/30 uppercase tracking-[0.2em] space-y-1">
-                      <span className="block border-b border-white/5 pb-2 mb-2 text-emerald-500/80 font-black tracking-widest text-[9px]">Engine Status (V4.2)</span>
-                      <span className="flex justify-between"><span>Core:</span> <span className="text-white/60">PHYSICAL_PBR_BETA</span></span>
-                      <span className="flex justify-between"><span>Active Nodes:</span> <span className="text-white/60">{state.items.length + state.lights.length} CHANNEL(S)</span></span>
-                      <span className="flex justify-between"><span>Render State:</span> <span className="text-emerald-500/50">STABLE_DIFFUSION_O1</span></span>
+                      <span className="block border-b border-white/5 pb-2 mb-2 text-emerald-500/80 font-black tracking-widest text-[9px]">{t('Engine Status', '엔진 상태')} (V4.2)</span>
+                      <span className="flex justify-between"><span>{t('Core', '코어')}:</span> <span className="text-white/60">PHYSICAL_PBR_BETA</span></span>
+                      <span className="flex justify-between"><span>{t('Active Nodes', '활성 노드')}:</span> <span className="text-white/60">{state.items.length + state.lights.length} CHANNEL(S)</span></span>
+                      <span className="flex justify-between"><span>{t('Render State', '렌더링 상태')}:</span> <span className="text-emerald-500/50">STABLE_DIFFUSION_O1</span></span>
                     </p>
                   </div>
                 </div>
