@@ -34,14 +34,15 @@ export function publicAssetsPlugin(): Plugin {
     name: 'vite-plugin-public-assets',
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
-        if (req.url === '/__materials_manifest') {
+        const url = req.url ? new URL(req.url, 'http://localhost').pathname : '';
+        if (url === '/__materials_manifest') {
           const files = scanDir('materials', IMAGE_EXTENSIONS);
           res.setHeader('Content-Type', 'application/json');
           res.setHeader('Cache-Control', 'no-cache');
           res.end(JSON.stringify(files));
           return;
         }
-        if (req.url === '/__models_manifest') {
+        if (url === '/__models_manifest') {
           const files = scanDir('models', MODEL_EXTENSIONS);
           res.setHeader('Content-Type', 'application/json');
           res.setHeader('Cache-Control', 'no-cache');

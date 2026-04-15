@@ -19,7 +19,7 @@ import { FurnitureItem, AppState } from '../types';
 
 import { selectionMeshesRef } from '../selectionRegistry';
 import * as THREE from 'three';
-import { Sun, Zap, Circle, Lightbulb } from 'lucide-react';
+import { Sun, Zap, Circle, Lightbulb, Lock, Unlock } from 'lucide-react';
 
 interface SceneProps {
   state: AppState;
@@ -40,6 +40,7 @@ interface SceneProps {
   ctrlPressed: boolean;
   showGizmos: boolean;
   onUpdateState: (updates: Partial<AppState>) => void;
+  viewCenterRef?: React.MutableRefObject<[number, number, number]>;
 }
 
 // selectionMeshesRef imported from ../selectionRegistry
@@ -206,6 +207,9 @@ function OverlayControlsLogic({ zoomRef, panRef }: { zoomRef: React.RefObject<HT
         const panOffset = new THREE.Vector3()
           .addScaledVector(camRight, -deltaX * distFactor)
           .addScaledVector(camUp, deltaY * distFactor);
+
+        // ARC-FIX: Safety check for NaNs
+        if (isNaN(panOffset.x) || isNaN(panOffset.y) || isNaN(panOffset.z)) return;
 
         camera.position.add(panOffset);
         (controls as any).target.add(panOffset);
@@ -809,7 +813,7 @@ function LightWithHelper({
 
 export const Scene = forwardRef<any, SceneProps>(({
   state, onSelect, onBoxSelect, onSelectSub, previewSelectedIds, selectedSubId,
-  onUpdate, onUpdateLight, onUpdateItems, onUpdateLights, onZoomChange, fitSignal, zoomRef, panRef, shiftPressed, ctrlPressed, showGizmos, onUpdateState
+  onUpdate, onUpdateLight, onUpdateItems, onUpdateLights, onZoomChange, fitSignal, zoomRef, panRef, shiftPressed, ctrlPressed, showGizmos, onUpdateState, viewCenterRef
 }, ref) => {
   // Silence specific deprecation warnings from libraries
   useEffect(() => {
@@ -826,12 +830,34 @@ export const Scene = forwardRef<any, SceneProps>(({
   }, []);
 
   const [isDragging, setIsDragging] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, itemId: string, isLocked: boolean } | null>(null);
   const [meshes, setMeshes] = useState<{ [id: string]: THREE.Mesh }>({});
   const [selectionBox, setSelectionBox] = useState<{ start: [number, number], end: [number, number] } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<any>(null);
   const isBoxSelecting = useRef(false);
+  const rightClickStartRef = useRef<{ x: number, y: number } | null>(null);
   const lastPercent = useRef<number>(100);
+
+  // ARC-FIX: Force resize during CSS transitions
+  const ResponsiveEnforcer = () => {
+    const { gl, camera, size } = useThree();
+    useFrame(() => {
+      const parent = gl.domElement.parentElement;
+      if (!parent) return;
+      const { clientWidth, clientHeight } = parent;
+      
+      // If the CSS transition moved the container but R3F size state hasn't caught up
+      if (Math.abs(size.width - clientWidth) > 0.5 || Math.abs(size.height - clientHeight) > 0.5) {
+        gl.setSize(clientWidth, clientHeight);
+        if ((camera as any).isPerspectiveCamera) {
+          (camera as any).aspect = clientWidth / clientHeight;
+          (camera as any).updateProjectionMatrix();
+        }
+      }
+    });
+    return null;
+  };
 
   const viewRef = useRef<{ camera: THREE.Camera, gl: THREE.WebGLRenderer } | null>(null);
 
@@ -857,6 +883,8 @@ export const Scene = forwardRef<any, SceneProps>(({
           end: [e.clientX - rect.left, e.clientY - rect.top]
         });
       }
+    } else if (e.button === 2) {
+      rightClickStartRef.current = { x: e.clientX, y: e.clientY };
     }
   };
 
@@ -867,6 +895,12 @@ export const Scene = forwardRef<any, SceneProps>(({
       viewRef.current = { camera, gl };
     }, [camera, gl]);
 
+    useEffect(() => {
+      const handleGlobalClick = () => setContextMenu(null);
+      window.addEventListener('click', handleGlobalClick);
+      return () => window.removeEventListener('click', handleGlobalClick);
+    }, []);
+
     useImperativeHandle(ref, () => ({
       scene,
       camera,
@@ -875,11 +909,21 @@ export const Scene = forwardRef<any, SceneProps>(({
 
     useFrame((state) => {
       if (controlsRef.current) {
-        const dist = state.camera.position.distanceTo(controlsRef.current.target);
-        const p = Math.round((26 / dist) * 100);
+        const target = (controlsRef.current as any).target;
+        if (!target) return;
+        
+        const dist = state.camera.position.distanceTo(target);
+        // ARC-FIX: Prevent division by zero or NaN if distance is extremely small
+        const safeDist = Math.max(0.1, dist);
+        const p = Math.round((26 / safeDist) * 100);
         if (p !== lastPercent.current) {
           onZoomChange(p);
           lastPercent.current = p;
+        }
+
+        // ARC-FIX: Sync current focus point for spawning new objects
+        if (viewCenterRef) {
+          viewCenterRef.current = [target.x, target.y, target.z];
         }
       }
     });
@@ -896,6 +940,61 @@ export const Scene = forwardRef<any, SceneProps>(({
         } : null);
       }
     }
+  };
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!viewRef.current || !containerRef.current) return;
+
+    // ARC-FIX: Ignore context menu if it was a drag (pan)
+    if (rightClickStartRef.current) {
+      const dx = e.clientX - rightClickStartRef.current.x;
+      const dy = e.clientY - rightClickStartRef.current.y;
+      rightClickStartRef.current = null;
+      if (Math.sqrt(dx * dx + dy * dy) > 10) return;
+    }
+
+    const { camera, gl } = viewRef.current;
+    const rect = containerRef.current.getBoundingClientRect();
+    
+    // Normalize mouse position for Raycaster
+    const mouse = new THREE.Vector2(
+      ((e.clientX - rect.left) / rect.width) * 2 - 1,
+      -((e.clientY - rect.top) / rect.height) * 2 + 1
+    );
+
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(mouse, camera);
+
+    // Manual raycast to find objects even if filtered in Canvas raycaster prop
+    const children = gl.domElement.parentElement?.querySelectorAll('*') || []; 
+    // Actually we should raycast against the scene
+    const scene = (ref as any).current?.scene;
+    if (!scene) return;
+
+    const intersects = raycaster.intersectObjects(scene.children, true);
+    
+    // Find the first furniture/item object
+    for (const intersect of intersects) {
+      let cur: any = intersect.object;
+      while (cur && !cur.userData?.id) {
+        cur = cur.parent;
+      }
+
+      if (cur && cur.userData?.id) {
+        const item = state.items.find(i => i.id === cur.userData.id);
+        if (item) {
+          setContextMenu({
+            x: e.clientX,
+            y: e.clientY,
+            itemId: item.id,
+            isLocked: !!item.locked
+          });
+          return;
+        }
+      }
+    }
+    setContextMenu(null);
   };
 
   const handlePointerUp = () => {
@@ -999,24 +1098,46 @@ export const Scene = forwardRef<any, SceneProps>(({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
+      onContextMenu={handleContextMenu}
     >
       <Canvas
         shadows={{ type: THREE.PCFSoftShadowMap }}
-        camera={{ position: [15, 15, 15], fov: 40, near: 0.1, far: 20000 }}
-        gl={{ logarithmicDepthBuffer: true, antialias: true }}
+        camera={{ position: [15, 15, 15], fov: 40, near: 0.1, far: 5000 }}
+        gl={{ 
+          logarithmicDepthBuffer: false, 
+          antialias: true,
+          stencil: true,
+          alpha: true,
+          preserveDrawingBuffer: true,
+          toneMapping: THREE.ACESFilmicToneMapping,
+          toneMappingExposure: 1.0
+        }}
+        dpr={[1, 2]}
         raycaster={{
           filter: (intersects) => {
             const gizmos = [];
             const others = [];
             for (const hit of intersects) {
-              let cur = hit.object;
-              let isGizmo = false;
+              // Check if object or any parent is locked
+              let isLocked = false;
+              let cur: any = hit.object;
               while (cur) {
-                if ((cur as any).userData?.pivot || (cur as any).userData?.hover || (cur.name && cur.name.toLowerCase().includes('pivot'))) {
+                if (cur.userData?.locked) {
+                  isLocked = true;
+                  break;
+                }
+                cur = cur.parent;
+              }
+              if (isLocked) continue;
+
+              let curGizmo = hit.object;
+              let isGizmo = false;
+              while (curGizmo) {
+                if ((curGizmo as any).userData?.pivot || (curGizmo as any).userData?.hover || (curGizmo.name && curGizmo.name.toLowerCase().includes('pivot'))) {
                   isGizmo = true;
                   break;
                 }
-                cur = cur.parent!;
+                curGizmo = curGizmo.parent!;
               }
               if (isGizmo) gizmos.push(hit);
               else others.push(hit);
@@ -1024,19 +1145,13 @@ export const Scene = forwardRef<any, SceneProps>(({
             return [...gizmos, ...others];
           }
         }}
-        gl={{
-          antialias: true,
-          stencil: true,
-          alpha: true,
-          toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 1.0
-        }}
         onPointerMissed={(e) => {
           if (e.button === 0 && !e.ctrlKey && !e.shiftKey && !e.metaKey) {
             onSelect(null);
           }
         }}
       >
+        <ResponsiveEnforcer />
         <color attach="background" args={['#0f0f0f']} />
         {state.lights.map(light => (
           <LightWithHelper
@@ -1124,6 +1239,7 @@ export const Scene = forwardRef<any, SceneProps>(({
                   isBoxSelecting={!!selectionBox}
                   gizmoMode={state.gizmoMode || 'translate'}
                   realtimeShadows={state.realtimeShadows}
+                  showReflection={state.showEnvironment}
                 />
               </Suspense>
             ))}
@@ -1191,6 +1307,34 @@ export const Scene = forwardRef<any, SceneProps>(({
             borderRadius: '2px'
           }}
         />
+      )}
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div 
+          className="fixed z-[9999] bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl py-2 overflow-hidden min-w-[140px] animate-in fade-in zoom-in duration-200 pointer-events-auto"
+          style={{ top: contextMenu.y + 5, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button 
+            onClick={() => {
+              onUpdate(contextMenu.itemId, { locked: !contextMenu.isLocked });
+              setContextMenu(null);
+            }}
+            className="w-full px-4 py-2.5 text-[10px] font-black text-white hover:bg-emerald-500 hover:text-black transition-all flex items-center justify-between gap-4 uppercase tracking-[0.1em] text-left"
+          >
+            <div className="flex items-center gap-2">
+              {contextMenu.isLocked ? <Unlock size={12} className="text-emerald-500" /> : <Lock size={12} className="text-white/40" />}
+              <span>{contextMenu.isLocked ? (state.language === 'ko' ? '잠금 해제' : 'Unlock') : (state.language === 'ko' ? '레이어 잠금' : 'Lock Layer')}</span>
+            </div>
+          </button>
+          
+          <div className="mx-2 mt-1 pt-1 border-t border-white/5">
+             <div className="px-2 py-1 text-[10px] text-white/20 font-black uppercase tracking-widest leading-loose">
+               Shortcut: <span className="text-white/40">Ctrl+Shift+L</span>
+             </div>
+          </div>
+        </div>
       )}
     </div>
   );

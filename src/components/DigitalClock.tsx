@@ -161,7 +161,7 @@ export const DigitalClock = forwardRef<THREE.Mesh, DigitalClockProps>(({
         <meshStandardMaterial
           attach="material-4"
           map={baseTexture}
-          emissive={new THREE.Color(8, 8, 8)}
+          emissive={[8, 8, 8]}
           emissiveIntensity={emissiveIntensity * 12}
           emissiveMap={emissiveTexture}
           toneMapped={false}

@@ -154,8 +154,8 @@ export const AssetLibrary: React.FC<AssetLibraryProps> = ({ onSelect }) => {
                 {cat.icon}
               </span>
               <div className="flex flex-col items-start transition-transform duration-300 transform group-hover:translate-x-0.5">
-                <span className="text-[10px] font-black uppercase tracking-widest text-white/50 group-hover:text-white/80">{cat.name}</span>
-                <span className="text-[7px] font-bold uppercase tracking-[0.2em] text-white/30">{cat.label} • {cat.items.length}</span>
+                <span className="text-[10px] font-black uppercase text-white/50 group-hover:text-white/80">{cat.name}</span>
+                <span className="text-[10px] font-bold uppercase text-white/30">{cat.label} • {cat.items.length}</span>
               </div>
               <div className={`ml-auto text-white/30 transition-transform duration-300 ${openCategories[cat.id] ? 'rotate-180 text-emerald-500/50' : ''}`}>
                 <ChevronDown size={12} />
@@ -168,7 +168,7 @@ export const AssetLibrary: React.FC<AssetLibraryProps> = ({ onSelect }) => {
                 <div className="grid grid-cols-2 gap-1.5">
                   {cat.items.length === 0 ? (
                     <div className="col-span-2 py-4 text-center border border-dashed border-white/5 rounded-xl">
-                      <span className="text-[8px] font-bold text-white/10 uppercase">Empty</span>
+                      <span className="text-[10px] font-bold text-white/10 uppercase">Empty</span>
                     </div>
                   ) : (
                     cat.items.map(model => (
@@ -180,7 +180,7 @@ export const AssetLibrary: React.FC<AssetLibraryProps> = ({ onSelect }) => {
                         <div className="w-5 h-5 rounded-md bg-white/[0.05] flex items-center justify-center text-white/30 group-hover:text-emerald-500 group-hover:scale-110 transition-all duration-500 shadow-inner shrink-0">
                           {getIcon(model.id)}
                         </div>
-                        <span className="truncate text-left text-[8px] font-bold text-white/40 group-hover:text-white uppercase tracking-tighter transition-colors leading-none">
+                        <span className="truncate text-left text-[10px] font-bold text-white/40 group-hover:text-white uppercase tracking-tighter transition-colors leading-none">
                           {model.name}
                         </span>
                       </button>

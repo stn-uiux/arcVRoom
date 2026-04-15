@@ -13,7 +13,7 @@ interface TextureManagerPanelProps {
 }
 
 export const TextureManagerPanel: React.FC<TextureManagerPanelProps> = ({ 
-  textures = [], onUpdate, onDelete, onAddNew, language = 'ko', 
+  textures = [], onUpdate, onDelete, onAddNew, language = 'en', 
   expandedId: externalExpandedId, onExpandedChange 
 }) => {
   const [internalExpandedId, setInternalExpandedId] = useState<string | null>(null);
@@ -33,12 +33,8 @@ export const TextureManagerPanel: React.FC<TextureManagerPanelProps> = ({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between mb-1 px-1">
-        <span className="text-[9px] font-black uppercase text-white/40 tracking-widest">{t('Custom Materials', '커스텀 재질')}</span>
-        <button onClick={onAddNew} className="p-1.5 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-black rounded-lg transition-all" title={t('Add New Material', '새 재질 추가')}><Plus size={12} /></button>
-      </div>
       <div className="space-y-1.5">
-        {textures && textures.length === 0 && <div className="text-[9px] text-white/20 italic text-center py-3 border border-white/5 border-dashed rounded-xl">{t('No custom textures', '등록된 커스텀 재질이 없습니다')}</div>}
+        {textures && textures.length === 0 && <div className="text-[10px] text-white/20 italic text-center py-3 border border-white/5 border-dashed rounded-xl">{t('No custom textures', '등록된 커스텀 재질이 없습니다')}</div>}
         {textures.map((tex) => (
           <div key={tex.id} className={`bg-white/2 rounded-xl border transition-all ${expandedId === tex.id ? 'border-emerald-500/30 bg-white/5' : 'border-white/5 hover:bg-white/5'}`}>
             <div className="flex items-center justify-between p-2.5 cursor-pointer" onClick={() => setExpandedId(expandedId === tex.id ? null : tex.id)}>
@@ -61,7 +57,7 @@ export const TextureManagerPanel: React.FC<TextureManagerPanelProps> = ({
               <div className="p-3 border-t border-white/5 space-y-4 bg-black/40 shadow-inner">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <span className="text-[8px] text-white/30 font-black uppercase tracking-widest pl-1">Material Name</span>
+                    <span className="text-[10px] text-white/30 font-black uppercase pl-1">Material Name</span>
                     <input 
                       type="text" 
                       value={tex.name} 
@@ -70,7 +66,7 @@ export const TextureManagerPanel: React.FC<TextureManagerPanelProps> = ({
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <span className="text-[8px] text-white/30 font-black uppercase tracking-widest pl-1">Color Tint</span>
+                    <span className="text-[10px] text-white/30 font-black uppercase pl-1">Color Tint</span>
                     <div className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-xl px-2 py-1.5 h-[34px]">
                       <div className="relative w-5 h-5 rounded-md overflow-hidden border border-white/20 shadow-lg">
                          <input 
@@ -80,14 +76,14 @@ export const TextureManagerPanel: React.FC<TextureManagerPanelProps> = ({
                           className="absolute -inset-2 w-10 h-10 bg-transparent border-none cursor-pointer p-0" 
                         />
                       </div>
-                      <span className="text-[9px] font-mono text-white/40 uppercase">{tex.color || '#FFFFFF'}</span>
+                      <span className="text-[10px] font-mono text-white/40 uppercase">{tex.color || '#FFFFFF'}</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Map Grid */}
                 <div className="space-y-2">
-                  <span className="text-[8px] text-white/30 font-black uppercase tracking-widest pl-1">Texture Maps</span>
+                  <span className="text-[10px] text-white/30 font-black uppercase pl-1">Texture Maps</span>
                   <div className="grid grid-cols-4 gap-2">
                     {[
                       { key: 'color', label: 'Color' },
@@ -126,7 +122,7 @@ export const TextureManagerPanel: React.FC<TextureManagerPanelProps> = ({
                             ) : (
                               <div className="flex flex-col items-center gap-1">
                                 <Upload size={10} className="text-white/20" />
-                                <span className="text-[6px] font-black uppercase tracking-tight text-white/20">{map.label}</span>
+                                <span className="text-[10px] font-black uppercase tracking-tight text-white/20">{map.label}</span>
                               </div>
                             )}
                             {hasMap && (
@@ -156,7 +152,7 @@ export const TextureManagerPanel: React.FC<TextureManagerPanelProps> = ({
                     { label: 'Disp Scale', field: 'displacementScale', default: 0.1 }
                   ].map(slider => (
                     <div key={slider.field} className="space-y-1.5 group/slider">
-                      <div className="flex justify-between text-[8px] text-white/30 font-black uppercase tracking-widest pl-1">
+                      <div className="flex justify-between text-[10px] text-white/30 font-black uppercase pl-1">
                         <span>{slider.label}</span>
                         <span className="text-emerald-500 opacity-0 group-hover/slider:opacity-100 transition-opacity">{(tex as any)[slider.field] ?? slider.default}</span>
                       </div>

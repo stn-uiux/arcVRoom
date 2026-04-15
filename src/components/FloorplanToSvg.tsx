@@ -458,11 +458,14 @@ function convexHull(points: Point[]): Point[] {
 interface FloorplanToSvgProps {
   isOpen: boolean;
   onClose: () => void;
+  onApply?: (svgData: string) => void;
+  language?: 'en' | 'ko';
 }
 
 type ActivePanel = 'levels' | 'curves' | 'huesat' | null;
 
-export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose }) => {
+export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose, onApply, language = 'en' }) => {
+  const t = (en: string, ko: string) => (language === 'ko' ? ko : en);
   const [sourceImage, setSourceImage] = useState<HTMLImageElement | null>(null);
   const [adj, setAdj] = useState<ImageAdjustments>(DEFAULT_ADJ);
   const [svgPaths, setSvgPaths] = useState<SvgPath[]>([]);
@@ -570,6 +573,15 @@ export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose 
   }, [sourceImage, adj, step, showOverlay]);
 
   const handleFile = useCallback((file: File) => {
+    const name = file.name.toLowerCase();
+    const extension = name.split('.').pop() || '';
+    const supported = ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif'];
+    
+    if (!supported.includes(extension)) {
+      alert(`지원하지 않는 이미지 형식입니다: .${extension}\n(PNG, JPG, WEBP 등의 이미지 파일만 업로드 가능합니다.)`);
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
@@ -591,8 +603,14 @@ export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose 
     e.stopPropagation();
     setIsDragging(false);
     const file = e.dataTransfer.files[0];
-    if (file && /^image\/(png|jpe?g|gif|bmp|webp)$/i.test(file.type)) {
-      handleFile(file);
+    if (file) {
+      const isImage = /^image\/(png|jpe?g|gif|bmp|webp)$/i.test(file.type);
+      if (isImage) {
+        handleFile(file);
+      } else {
+        const extension = file.name.split('.').pop() || 'unknown';
+        alert(`지원하지 않는 이미지 형식입니다: .${extension}\n(PNG, JPG, WEBP 등의 이미지 파일만 드래그 앤 드롭이 가능합니다.)`);
+      }
     }
   }, [handleFile]);
 
@@ -643,7 +661,16 @@ export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose 
       // 2. Build combined Path 'd' attribute for even-odd filling
       const pathsSvg = svgPaths.filter(p => p.visible !== false).map(path => {
         const combinedD = path.subPaths.map(points => {
-          const scaled = points.map(pt => ({ x: pt.x * scale, y: pt.y * scale }));
+          const scaled = points.map(pt => ({ 
+            x: pt.x * scale, 
+            y: pt.y * scale,
+            bezier: pt.bezier ? {
+              cx1: pt.bezier.cx1 * scale,
+              cy1: pt.bezier.cy1 * scale,
+              cx2: pt.bezier.cx2 * scale,
+              cy2: pt.bezier.cy2 * scale
+            } : undefined
+          }));
           return pathToSvgD(scaled, path.closed);
         }).join(' ');
         const fill = path.color || (path.id === 'floor' ? '#dddddd' : '#333333');
@@ -679,6 +706,44 @@ ${pathsSvg}
       alert('SVG 다운로드에 실패했습니다.');
     }
   }, [sourceImage, svgPaths, svgWidth]);
+
+  const handleApplyToScene = useCallback(() => {
+    if (!sourceImage || svgPaths.length === 0 || !onApply) return;
+
+    try {
+      const w = sourceImage.naturalWidth;
+      const h = sourceImage.naturalHeight;
+      const scale = 1.0; // Use natural scale for scene application
+      
+      const pathsSvg = svgPaths.filter(p => p.visible !== false).map(path => {
+        const combinedD = path.subPaths.map(points => {
+          const scaled = points.map(pt => ({ 
+            x: pt.x * scale, 
+            y: pt.y * scale,
+            bezier: pt.bezier ? {
+              cx1: pt.bezier.cx1 * scale,
+              cy1: pt.bezier.cy1 * scale,
+              cx2: pt.bezier.cx2 * scale,
+              cy2: pt.bezier.cy2 * scale
+            } : undefined
+          }));
+          return pathToSvgD(scaled, path.closed);
+        }).join(' ');
+        const fill = path.color || (path.id === 'floor' ? '#dddddd' : '#333333');
+        const opacity = path.opacity !== undefined ? path.opacity : (path.id === 'floor' ? 0.05 : 0.85);
+        return `  <path id="${path.id}" d="${combinedD}" fill="${fill}" fill-opacity="${opacity}" fill-rule="evenodd" stroke="none" />`;
+      }).join('\n');
+
+      const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+${pathsSvg}
+</svg>`;
+
+      onApply(svgContent);
+      onClose();
+    } catch (err) {
+      console.error('Apply to scene failed:', err);
+    }
+  }, [sourceImage, svgPaths, onApply, onClose]);
 
   const handleSvgMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     if (!editMode) return;
@@ -1086,7 +1151,7 @@ ${pathsSvg}
   }, [selectionBox, selectedPoints, highlightedPoints, draggingPoint, commitChange]);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
-    if (step !== 'edit') return;
+    if (step === 'upload') return;
     e.preventDefault();
     const zoomFactor = 1.1;
     const delta = e.deltaY > 0 ? 1 / zoomFactor : zoomFactor;
@@ -1275,7 +1340,7 @@ ${pathsSvg}
     onChange: (v: number) => void; unit?: string;
   }) => (
     <div className="space-y-1">
-      <div className="flex justify-between text-[9px] font-black text-white/40 uppercase tracking-widest">
+      <div className="flex justify-between text-[10px] font-black text-white/40 uppercase tracking-widest">
         <span>{label}</span>
         <span className="text-emerald-500 font-mono">{value.toFixed(s && s < 1 ? 1 : 0)}{unit || ''}</span>
       </div>
@@ -1304,11 +1369,11 @@ ${pathsSvg}
           <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 shrink-0">
             <div className="flex items-center gap-3">
               <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981] animate-pulse" />
-              <h2 className="text-sm font-black uppercase tracking-[0.2em] text-white/80">Create SVG Floorplan</h2>
+              <h2 className="text-sm font-black uppercase text-white/80">{t('Create SVG Floorplan', 'SVG 도면 생성')}</h2>
               <div className="flex gap-1 ml-4">
                 {['upload', 'adjust', 'edit'].map((s, i) => (
                   <div key={s} className="flex items-center gap-1">
-                    <div className={`w-6 h-6 rounded-full text-[9px] font-black flex items-center justify-center border transition-all ${
+                    <div className={`w-6 h-6 rounded-full text-[10px] font-black flex items-center justify-center border transition-all ${
                       step === s ? 'bg-emerald-500 text-black border-emerald-500' :
                       ['upload', 'adjust', 'edit'].indexOf(step) > i ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/30' :
                       'bg-white/5 text-white/20 border-white/10'
@@ -1318,9 +1383,9 @@ ${pathsSvg}
                 ))}
               </div>
               {isProcessing && (
-                <div className="ml-3 flex items-center gap-2 text-[9px] text-amber-500 font-bold uppercase tracking-widest">
+                <div className="ml-3 flex items-center gap-2 text-[10px] text-amber-500 font-bold uppercase">
                   <div className="w-3 h-3 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-                  Processing...
+                  {t('Processing...', '처리 중...')}
                 </div>
               )}
             </div>
@@ -1353,8 +1418,8 @@ ${pathsSvg}
                     <Upload size={32} className={`transition-colors ${isDragging ? 'text-emerald-500' : 'text-white/20'}`} />
                   </div>
                   <div className="text-center space-y-2">
-                    <p className="text-sm font-black uppercase tracking-widest text-white/60">Drop Floorplan Image Here</p>
-                    <p className="text-[10px] text-white/20 font-bold uppercase tracking-wider">PNG, JPG, GIF, BMP, WEBP</p>
+                    <p className="text-sm font-black uppercase text-white/60">{t('Drop Floorplan Image Here', '도면 이미지를 여기에 드롭하세요')}</p>
+                    <p className="text-[10px] text-white/20 font-bold uppercase tracking-wider">{t('PNG, JPG, GIF, BMP, WEBP', '지원 형식: PNG, JPG, WEBP 등')}</p>
                   </div>
                 </div>
               </div>
@@ -1370,13 +1435,13 @@ ${pathsSvg}
                       <>
                         {/* Presets */}
                         <div className="space-y-2">
-                          <span className="text-[8px] font-black uppercase tracking-widest text-white/30">Presets</span>
+                          <span className="text-[10px] font-black uppercase text-white/30">{t('Presets', '프리셋')}</span>
                           <div className="grid grid-cols-2 gap-1.5">
                             <button
                               onClick={() => setAdj(DEFAULT_ADJ)}
-                              className="py-2 bg-white/5 hover:bg-white/10 text-white/60 text-[9px] font-black uppercase rounded-xl border border-white/5 transition-all"
+                              className="py-2 bg-white/5 hover:bg-white/10 text-white/60 text-[10px] font-black uppercase rounded-xl border border-white/5 transition-all"
                             >
-                              Default
+                              {t('Default', '초기값')}
                             </button>
                             <button
                               onClick={() => setAdj(a => ({
@@ -1390,10 +1455,10 @@ ${pathsSvg}
                                 threshold: 180,
                                 minArea: 800
                               }))}
-                              className="py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 text-[9px] font-black uppercase rounded-xl border border-emerald-500/20 transition-all flex items-center justify-center gap-2"
+                              className="py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 text-[10px] font-black uppercase rounded-xl border border-emerald-500/20 transition-all flex items-center justify-center gap-2"
                             >
                               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
-                              Wall Only
+                              {t('Wall Only', '벽체 강조')}
                             </button>
                           </div>
                         </div>
@@ -1401,14 +1466,14 @@ ${pathsSvg}
                         {/* Panel Toggles */}
                         <div className="grid grid-cols-3 gap-1.5">
                           {([
-                            { id: 'levels' as ActivePanel, icon: <SlidersHorizontal size={14} />, label: '레벨' },
-                            { id: 'curves' as ActivePanel, icon: <Contrast size={14} />, label: '곡선' },
-                            { id: 'huesat' as ActivePanel, icon: <Palette size={14} />, label: '색조' },
+                            { id: 'levels' as ActivePanel, icon: <SlidersHorizontal size={14} />, label: t('Levels', '레벨') },
+                            { id: 'curves' as ActivePanel, icon: <Contrast size={14} />, label: t('Curves', '곡선') },
+                            { id: 'huesat' as ActivePanel, icon: <Palette size={14} />, label: t('Hue/Sat', '색조') },
                           ]).map(panel => (
                             <button
                               key={panel.id}
                               onClick={() => setActivePanel(activePanel === panel.id ? null : panel.id)}
-                              className={`flex flex-col items-center gap-1 py-2 px-1 rounded-xl border transition-all text-[8px] font-black uppercase tracking-wider ${
+                              className={`flex flex-col items-center gap-1 py-2 px-1 rounded-xl border transition-all text-[10px] font-black uppercase tracking-wider ${
                                 activePanel === panel.id
                                   ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'
                                   : 'bg-white/[0.03] border-white/5 text-white/40 hover:bg-white/[0.06]'
@@ -1425,10 +1490,10 @@ ${pathsSvg}
                           {activePanel === 'levels' && (
                             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                               <div className="space-y-3 p-3 bg-white/[0.02] rounded-xl border border-white/5">
-                                <span className="text-[8px] font-black uppercase tracking-widest text-white/30">Levels</span>
-                                <Slider label="Input Black" value={adj.levelBlack} min={0} max={254} onChange={v => setAdj(a => ({ ...a, levelBlack: v }))} />
-                                <Slider label="Input White" value={adj.levelWhite} min={1} max={255} onChange={v => setAdj(a => ({ ...a, levelWhite: v }))} />
-                                <Slider label="Gamma" value={adj.levelGamma} min={0.1} max={5} step={0.05} onChange={v => setAdj(a => ({ ...a, levelGamma: v }))} />
+                                <span className="text-[10px] font-black uppercase tracking-widest text-white/30">{t('Levels', '레벨 조정')}</span>
+                                <Slider label={t('Input Black', '입력 블랙')} value={adj.levelBlack} min={0} max={254} onChange={v => setAdj(a => ({ ...a, levelBlack: v }))} />
+                                <Slider label={t('Input White', '입력 화이트')} value={adj.levelWhite} min={1} max={255} onChange={v => setAdj(a => ({ ...a, levelWhite: v }))} />
+                                <Slider label={t('Gamma', '감마')} value={adj.levelGamma} min={0.1} max={5} step={0.05} onChange={v => setAdj(a => ({ ...a, levelGamma: v }))} />
                               </div>
                             </motion.div>
                           )}
@@ -1439,9 +1504,9 @@ ${pathsSvg}
                           {activePanel === 'curves' && (
                             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                               <div className="space-y-3 p-3 bg-white/[0.02] rounded-xl border border-white/5">
-                                <span className="text-[8px] font-black uppercase tracking-widest text-white/30">Curves</span>
-                                <Slider label="Brightness" value={adj.brightness} min={-100} max={100} onChange={v => setAdj(a => ({ ...a, brightness: v }))} />
-                                <Slider label="Contrast" value={adj.contrast} min={-100} max={100} onChange={v => setAdj(a => ({ ...a, contrast: v }))} />
+                                <span className="text-[10px] font-black uppercase tracking-widest text-white/30">{t('Curves', '곡선 조정')}</span>
+                                <Slider label={t('Brightness', '밝기')} value={adj.brightness} min={-100} max={100} onChange={v => setAdj(a => ({ ...a, brightness: v }))} />
+                                <Slider label={t('Contrast', '대비')} value={adj.contrast} min={-100} max={100} onChange={v => setAdj(a => ({ ...a, contrast: v }))} />
                               </div>
                             </motion.div>
                           )}
@@ -1452,10 +1517,10 @@ ${pathsSvg}
                           {activePanel === 'huesat' && (
                             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                               <div className="space-y-3 p-3 bg-white/[0.02] rounded-xl border border-white/5">
-                                <span className="text-[8px] font-black uppercase tracking-widest text-white/30">Hue / Saturation</span>
-                                <Slider label="Hue" value={adj.hue} min={-180} max={180} onChange={v => setAdj(a => ({ ...a, hue: v }))} unit="°" />
-                                <Slider label="Saturation" value={adj.saturation} min={-100} max={100} onChange={v => setAdj(a => ({ ...a, saturation: v }))} />
-                                <Slider label="Lightness" value={adj.lightness} min={-100} max={100} onChange={v => setAdj(a => ({ ...a, lightness: v }))} />
+                                <span className="text-[10px] font-black uppercase tracking-widest text-white/30">{t('Hue / Saturation', '색조 / 채도')}</span>
+                                <Slider label={t('Hue', '색상')} value={adj.hue} min={-180} max={180} onChange={v => setAdj(a => ({ ...a, hue: v }))} unit="°" />
+                                <Slider label={t('Saturation', '채도')} value={adj.saturation} min={-100} max={100} onChange={v => setAdj(a => ({ ...a, saturation: v }))} />
+                                <Slider label={t('Lightness', '휘도')} value={adj.lightness} min={-100} max={100} onChange={v => setAdj(a => ({ ...a, lightness: v }))} />
                               </div>
                             </motion.div>
                           )}
@@ -1465,30 +1530,30 @@ ${pathsSvg}
                         <div className="space-y-3 p-3 bg-emerald-500/[0.03] rounded-xl border border-emerald-500/10">
                           <div className="flex items-center gap-2">
                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            <span className="text-[8px] font-black uppercase tracking-widest text-emerald-500/60">Wall Extraction</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500/60">{t('Wall Extraction', '벽체 추출 설정')}</span>
                           </div>
-                          <Slider label="Threshold" value={adj.threshold} min={0} max={255} onChange={v => setAdj(a => ({ ...a, threshold: v }))} />
-                          <Slider label="Wall Thickness" value={adj.wallThickness} min={0} max={15} onChange={v => setAdj(a => ({ ...a, wallThickness: v }))} unit="px" />
-                          <Slider label="Min Area" value={adj.minArea} min={0} max={5000} step={50} onChange={v => setAdj(a => ({ ...a, minArea: v }))} />
-                          <Slider label="Simplify" value={adj.simplify} min={0.5} max={10} step={0.5} onChange={v => setAdj(a => ({ ...a, simplify: v }))} />
+                          <Slider label={t('Threshold', '임계값')} value={adj.threshold} min={0} max={255} onChange={v => setAdj(a => ({ ...a, threshold: v }))} />
+                          <Slider label={t('Wall Thickness', '최소 벽 두께')} value={adj.wallThickness} min={0} max={15} onChange={v => setAdj(a => ({ ...a, wallThickness: v }))} unit="px" />
+                          <Slider label={t('Min Area', '최소 면적')} value={adj.minArea} min={0} max={5000} step={50} onChange={v => setAdj(a => ({ ...a, minArea: v }))} />
+                          <Slider label={t('Simplify', '단순화')} value={adj.simplify} min={0.5} max={10} step={0.5} onChange={v => setAdj(a => ({ ...a, simplify: v }))} />
 
                           <div className="flex gap-2">
                             <button
                               onClick={() => setAdj(a => ({ ...a, invert: !a.invert }))}
-                              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border text-[8px] font-black uppercase tracking-wider transition-all ${
+                              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all ${
                                 adj.invert ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-white/[0.03] border-white/5 text-white/40'
                               }`}
                             >
-                              Invert
+                              {t('Invert', '색상 반전')}
                             </button>
                             <button
                               onClick={() => setShowOverlay(!showOverlay)}
-                              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border text-[8px] font-black uppercase tracking-wider transition-all ${
+                              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all ${
                                 showOverlay ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-white/[0.03] border-white/5 text-white/40'
                               }`}
                             >
                               {showOverlay ? <Eye size={12} /> : <EyeOff size={12} />}
-                              Overlay
+                              {t('Overlay', '이미지 겹침')}
                             </button>
                           </div>
                         </div>
@@ -1496,23 +1561,22 @@ ${pathsSvg}
                         {/* Reset */}
                         <button
                           onClick={() => setAdj(DEFAULT_ADJ)}
-                          className="w-full flex items-center justify-center gap-2 py-2 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-white/5"
+                          className="w-full flex items-center justify-center gap-2 py-2 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/5"
                         >
-                          <RefreshCw size={12} /> Reset All
+                          <RefreshCw size={12} /> {t('Reset All', '설정 초기화')}
                         </button>
 
-                        {/* Convert */}
                         <button
                           onClick={convertToSvg}
                           disabled={!wallGrid || isProcessing || previewPaths.length === 0}
-                          className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase tracking-widest rounded-xl text-[11px] transition-all shadow-[0_0_30px_rgba(16,185,129,0.3)] disabled:opacity-30"
+                          className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase rounded-xl text-[11px] transition-all shadow-[0_0_30px_rgba(16,185,129,0.3)] disabled:opacity-30"
                         >
-                          Convert to SVG
+                          {t('Convert to SVG', 'SVG 도면 생성하기')}
                         </button>
                         
                         <div className="flex border-t border-white/5 pt-2 justify-between px-1">
-                          <span className="text-[8px] font-black text-white/30 uppercase">Paths: {previewPaths.length}</span>
-                          <span className="text-[8px] font-black text-white/30 uppercase">Points: {previewPaths.reduce((s, p) => s + (p.subPaths?.[0]?.length || 0), 0)}</span>
+                          <span className="text-[10px] font-black text-white/30 uppercase">Paths: {previewPaths.length}</span>
+                          <span className="text-[10px] font-black text-white/30 uppercase">Points: {previewPaths.reduce((s, p) => s + (p.subPaths?.[0]?.length || 0), 0)}</span>
                         </div>
                       </>
                     )}
@@ -1520,54 +1584,54 @@ ${pathsSvg}
                     {step === 'edit' && (
                       <>
                         <div className="space-y-2">
-                          <span className="text-[8px] font-black uppercase tracking-widest text-white/30">Vector Edit</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-white/30">{t('Vector Edit', '벡터 편집')}</span>
                           <div className="flex gap-2 mb-2">
                              <button
-                                onClick={() => setShowBgInEdit(!showBgInEdit)}
-                                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl border text-[9px] font-black uppercase tracking-wider transition-all ${
-                                  showBgInEdit ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10'
-                                }`}
-                              >
-                                {showBgInEdit ? <Eye size={12} /> : <EyeOff size={12} />}
-                                Show Bg
-                              </button>
+                                 onClick={() => setShowBgInEdit(!showBgInEdit)}
+                                 className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all ${
+                                   showBgInEdit ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10'
+                                 }`}
+                               >
+                                 {showBgInEdit ? <Eye size={12} /> : <EyeOff size={12} />}
+                                 {t('Show Bg', '배경 보기')}
+                               </button>
                              <button
-                                onClick={() => setEnablePixelSnap(!enablePixelSnap)}
-                                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl border text-[9px] font-black uppercase tracking-wider transition-all ${
-                                  enablePixelSnap ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10'
-                                }`}
-                              >
-                                <Grid size={12} /> Pixel Snap
-                              </button>
+                                 onClick={() => setEnablePixelSnap(!enablePixelSnap)}
+                                 className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all ${
+                                   enablePixelSnap ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10'
+                                 }`}
+                               >
+                                 <Grid size={12} /> {t('Pixel Snap', '픽셀 스냅')}
+                               </button>
                           </div>
                           <div className="grid grid-cols-2 gap-1.5">
                             <button
                               onClick={() => setEditMode(!editMode)}
-                              className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border text-[9px] font-black uppercase tracking-wider transition-all ${
+                              className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all ${
                                 editMode ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10'
                               }`}
                             >
-                              <Pencil size={12} /> Edit Points
+                              <Pencil size={12} /> {t('Edit Points', '점 편집')}
                             </button>
                             <button
                               onClick={deleteSelectedPoints}
                               disabled={selectedPoints.size === 0}
-                              className="flex items-center justify-center gap-2 py-2.5 rounded-xl border text-[9px] font-black uppercase tracking-wider transition-all bg-white/5 border-white/5 text-white/40 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-500 disabled:opacity-20"
+                              className="flex items-center justify-center gap-2 py-2.5 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all bg-white/5 border-white/5 text-white/40 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-500 disabled:opacity-20"
                             >
-                              <Trash2 size={12} /> Del {selectedPoints.size > 0 ? `(${selectedPoints.size})` : 'Pts'}
+                              <Trash2 size={12} /> {t('Delete', '삭제')} {selectedPoints.size > 0 ? `(${selectedPoints.size})` : ''}
                             </button>
                           </div>
                           {selectedPathId && (
                             <button onClick={deleteSelectedPath}
-                              className="w-full flex items-center justify-center gap-2 py-2 rounded-xl border text-[9px] font-black uppercase tracking-wider transition-all bg-red-500/10 border-red-500/20 text-red-500 hover:bg-red-500/20"
+                              className="w-full flex items-center justify-center gap-2 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all bg-red-500/10 border-red-500/20 text-red-500 hover:bg-red-500/20"
                             >
-                              <Trash2 size={12} /> Delete Selected Path
+                              <Trash2 size={12} /> {t('Delete Selected Path', '선택된 패스 삭제')}
                             </button>
                           )}
                         </div>
 
                         <div className="space-y-1.5">
-                          <span className="text-[8px] font-black uppercase tracking-widest text-white/30">Layers</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-white/30">{t('Layers', '레이어 리스트')}</span>
                           <div className="flex flex-col gap-1.5">
                             {svgPaths.map((path, idx) => (
                               <div key={path.id} 
@@ -1581,7 +1645,7 @@ ${pathsSvg}
                                       <button disabled={idx === svgPaths.length - 1} onClick={(e) => { e.stopPropagation(); if(idx === svgPaths.length - 1) return; const newPaths=[...svgPaths]; const temp=newPaths[idx+1]; newPaths[idx+1]=path; newPaths[idx]=temp; setSvgPaths(newPaths); commitChange(newPaths); }} className="hover:text-emerald-500 disabled:opacity-30 disabled:hover:text-white"><ChevronDown size={10} /></button>
                                     </div>
                                     <span className={`text-[10px] font-black uppercase tracking-widest ${selectedPathId === path.id ? 'text-emerald-500' : 'text-white/60'}`}>
-                                      {path.id === 'floor' ? 'Floor' : 'Wall'} <span className="text-[7px] bg-white/10 px-1 py-0.5 rounded ml-1 text-white/40">{path.subPaths.length} pts</span>
+                                      {path.id === 'floor' ? t('Floor', '바닥면') : t('Wall', '벽체')} <span className="text-[10px] bg-white/10 px-1 py-0.5 rounded ml-1 text-white/40">{path.subPaths.length} pts</span>
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-1">
@@ -1601,7 +1665,7 @@ ${pathsSvg}
                                     onChange={(e) => { const np = [...svgPaths]; np[idx] = {...path, opacity: parseFloat(e.target.value)}; setSvgPaths(np); }}
                                     onMouseUp={() => commitChange(svgPaths)}
                                     className="flex-1 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500" />
-                                  <span className="text-[8px] font-mono text-white/40 w-6 text-right">{(path.opacity ?? (path.id==='floor'?0.05:0.85)).toFixed(2)}</span>
+                                  <span className="text-[10px] font-mono text-white/40 w-6 text-right">{(path.opacity ?? (path.id==='floor'?0.05:0.85)).toFixed(2)}</span>
                                 </div>
                               </div>
                             ))}
@@ -1609,9 +1673,9 @@ ${pathsSvg}
                         </div>
 
                         <div className="space-y-3 p-3 bg-white/[0.02] rounded-xl border border-white/5">
-                          <span className="text-[8px] font-black uppercase tracking-widest text-white/30">SVG Export</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-white/30">{t('SVG Export', '내보내기 설정')}</span>
                           <div className="space-y-1.5">
-                            <span className="text-[8px] text-white/30 font-bold uppercase">Export Width (px)</span>
+                            <span className="text-[10px] text-white/30 font-bold uppercase">{t('Export Width (px)', '출력 가로 너비 (px)')}</span>
                             <input type="number" min={1} value={svgWidth}
                               onChange={(e) => setSvgWidth(e.target.value)}
                               onBlur={(e) => setSvgWidth(Math.max(1, parseInt(e.target.value) || 1000))}
@@ -1619,16 +1683,22 @@ ${pathsSvg}
                             />
                           </div>
                           <button onClick={downloadSvg} disabled={svgPaths.length === 0}
-                            className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase tracking-widest rounded-xl text-[11px] transition-all shadow-[0_0_30px_rgba(16,185,129,0.3)] disabled:opacity-30"
+                            className="w-full flex items-center justify-center gap-2 py-3 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/10 font-black uppercase rounded-xl text-[11px] transition-all disabled:opacity-30"
                           >
-                            <Download size={14} /> Download SVG
+                            <Download size={14} /> {t('Download SVG', 'SVG 파일 다운로드')}
+                          </button>
+
+                          <button onClick={handleApplyToScene} disabled={svgPaths.length === 0 || !onApply}
+                            className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase rounded-xl text-[11px] transition-all shadow-[0_0_30px_rgba(16,185,129,0.3)] disabled:opacity-30"
+                          >
+                            <RefreshCw size={14} /> {t('Apply to Scene', '3D 현장에 반영하기')}
                           </button>
                         </div>
 
                         <button onClick={() => { setStep('adjust'); setEditMode(false); }}
-                          className="w-full flex items-center justify-center gap-2 py-2 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-white/5"
+                          className="w-full flex items-center justify-center gap-2 py-2 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/5"
                         >
-                          <Undo2 size={12} /> Back to Adjust
+                          <Undo2 size={12} /> {t('Back to Adjust', '추출 단계로 돌아가기')}
                         </button>
                       </>
                     )}
@@ -1642,21 +1712,30 @@ ${pathsSvg}
                       <button onClick={() => setZoom(z => Math.max(0.1, z - 0.25))} className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 transition-all"><ZoomOut size={14} /></button>
                       <span className="text-[10px] font-mono font-bold text-white/40 w-12 text-center">{Math.round(zoom * 100)}%</span>
                       <button onClick={() => setZoom(z => Math.min(100, z + 0.25))} className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 transition-all"><ZoomIn size={14} /></button>
-                      <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} className="text-[8px] font-black text-white/20 hover:text-white ml-2 uppercase">Reset View</button>
+                      <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} className="text-[10px] font-black text-white/20 hover:text-white ml-2 uppercase">{t('Reset View', '화면 재설정')}</button>
                       <div className="w-px h-3 bg-white/10 mx-2" />
                       <button onClick={toggleCurve} disabled={selectedPoints.size === 0} title="Toggle Curve (C)" className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-all disabled:opacity-30 disabled:hover:bg-white/5"><Spline size={14} /></button>
                       <button onClick={undo} disabled={historyRef.current.past.length === 0} title="Undo (Ctrl+Z)" className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-all disabled:opacity-30 disabled:hover:bg-white/5"><Undo2 size={14} /></button>
                       <button onClick={redo} disabled={historyRef.current.future.length === 0} title="Redo (Ctrl+Shift+Z)" className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-all disabled:opacity-30 disabled:hover:bg-white/5" style={{ transform: 'scaleX(-1)' }}><Undo2 size={14} /></button>
                     </div>
                     {step === 'edit' && (
-                      <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">
-                        {isSpacePressed ? '✋ Pan Mode — Drag to move view' : editMode ? '🟢 Editing — Click points or Ctrl+Drag box' : 'Double-click to edit points | Space + Drag to Pan'}
+                      <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">
+                        {isSpacePressed 
+                          ? t('✋ Pan Mode — Drag to move view', '✋ 팬 모드 — 드래그하여 화면 이동') 
+                          : editMode 
+                            ? t('🟢 Editing — Click points or Ctrl+Drag box', '🟢 편집 모드 — 점 클릭 또는 Ctrl+드래그') 
+                            : t('Double-click to edit points | Space + Drag to Pan | Scroll to Zoom', '더블 클릭하여 점 편집 | Space + 드래그로 이동 | 휠 스크롤로 확대축소')}
                       </span>
                     )}
                     {step === 'adjust' && (
-                      <span className="text-[9px] font-black text-emerald-500/40 uppercase tracking-widest">
-                        Green = Extracted Walls
-                      </span>
+                      <div className="flex flex-col items-center">
+                        <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-3 py-1 rounded-full mb-1 border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]">
+                          {t('Green Area = Extracted Walls', '녹색 영역 = 추출된 벽체 영역')}
+                        </span>
+                        <span className="text-[10px] font-black text-white/20 uppercase tracking-widest mt-1">
+                          {t('Space + Drag to Pan | Scroll to Zoom', 'Space + 드래그로 화면 이동 | 휠 스크롤로 확대축소')}
+                        </span>
+                      </div>
                     )}
                   </div>
 

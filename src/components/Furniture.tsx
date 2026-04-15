@@ -13,6 +13,9 @@ import { getPresetMaterials } from './MaterialsLibrary';
 import { selectionMeshesRef } from '../selectionRegistry';
 import { Evaluator, Brush, SUBTRACTION } from 'three-bvh-csg';
 
+// Set global DRACO decoder path for useGLTF
+useGLTF.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+
 const ModelLayer: React.FC<{ url: string; onModelLoaded: (scene: THREE.Group) => void }> = ({ url, onModelLoaded }) => {
   const { scene } = useGLTF(url);
   useEffect(() => {
@@ -48,6 +51,7 @@ interface FurnitureProps {
   isBoxSelecting?: boolean;
   gizmoMode: 'translate' | 'rotate' | 'scale' | 'texture';
   realtimeShadows?: boolean;
+  showReflection: boolean;
 }
 
 const SubtractionGizmo: React.FC<{
@@ -164,12 +168,68 @@ export const Furniture = React.memo(({
   isLastSelected,
   isBoxSelecting = false,
   gizmoMode,
-  realtimeShadows
+  realtimeShadows,
+  showReflection
 }: FurnitureProps) => {
   const meshRef = useRef<THREE.Mesh>(null!);
   const groupRef = useRef<THREE.Group>(null!);
   const { scene } = useThree();
   const [loadedScene, setLoadedScene] = useState<THREE.Group | null>(null);
+
+  const texConfig = useMemo(() => {
+    return ([
+      ...getPresetMaterials(),
+      ...customTextures
+    ].find(t => t.id === item.textureId)) as TextureConfig | undefined;
+  }, [item.textureId, customTextures]);
+
+  const mapUrls = useMemo(() => {
+    if (!texConfig || item.textureId === 'none') return null;
+    const urls: { [key: string]: string } = {};
+    if (texConfig.maps) {
+      Object.entries(texConfig.maps).forEach(([k, v]) => { if (v) urls[k] = v; });
+    } else if (texConfig.url) {
+      urls.color = texConfig.url;
+    }
+    return Object.keys(urls).length > 0 ? urls : null;
+  }, [texConfig, item.textureId]);
+
+  // Stable fallback for useTexture when no maps are needed
+  const dummyMap = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
+
+  // @ts-ignore
+  const loadedMaps = useTexture(mapUrls || { dummy: dummyMap });
+
+  const finalTextures = useMemo(() => {
+    if (!mapUrls || !loadedMaps) return null;
+
+    const result: { [key: string]: THREE.Texture } = {};
+    const useTiling = item.textureTiling !== false;
+    const densityX = item.textureDensity?.[0] ?? 1;
+    const densityY = item.textureDensity?.[1] ?? 1;
+    const offsetX = item.textureOffset?.[0] ?? 0;
+    const offsetY = item.textureOffset?.[1] ?? 0;
+
+    Object.keys(mapUrls).forEach(key => {
+      const t = (loadedMaps as any)[key]?.clone();
+      if (t) {
+        t.wrapS = t.wrapT = THREE.RepeatWrapping;
+        if (useTiling) {
+          const baseRepeatX = texConfig?.repeat?.[0] || 1;
+          const baseRepeatY = texConfig?.repeat?.[1] || 1;
+          t.repeat.set(baseRepeatX * densityX, baseRepeatY * densityY);
+          t.offset.set(offsetX, offsetY);
+        } else {
+          t.repeat.set(1, 1);
+          t.offset.set(0, 0);
+        }
+        result[key] = t;
+      }
+    });
+
+    return result;
+  }, [mapUrls, loadedMaps, item.textureTiling, item.textureDensity, item.textureOffset, texConfig]);
+
   const [isColliding, setIsColliding] = useState(false);
   const pointerDownPos = useRef<{ x: number, y: number } | null>(null);
 
@@ -303,7 +363,7 @@ export const Furniture = React.memo(({
                 mat.envMapIntensity = Math.max(mat.envMapIntensity || 1, 1);
 
                 if (item.glassColor) {
-                  mat.color = new THREE.Color(item.glassColor);
+                  mat.color.set(item.glassColor);
                 }
 
                 if (item.glassOpacity !== undefined) {
@@ -313,12 +373,12 @@ export const Furniture = React.memo(({
                   }
                 } else {
                   if (!hasTransmission) {
-                    mat.opacity = 0.3;
+                    mat.opacity = 0.2; // ARC-FIX: Default 0.2
                   }
                 }
 
-                mat.metalness = item.glassMetalness !== undefined ? item.glassMetalness : (mat.metalness ?? 0.1);
-                mat.roughness = item.glassRoughness !== undefined ? item.glassRoughness : Math.min(mat.roughness || 0, 0.1);
+                mat.metalness = item.glassMetalness !== undefined ? item.glassMetalness : 1.0; // ARC-FIX: Default 1.0
+                mat.roughness = item.glassRoughness !== undefined ? item.glassRoughness : 0.0; // ARC-FIX: Default 0.0
               } else {
                 // For non-glass materials, respect opacity-based depthWrite but keep it TRUE for near-opaque items
                 if (mat.transparent && mat.opacity < 0.9) {
@@ -368,7 +428,12 @@ export const Furniture = React.memo(({
         }
       });
       if (containsGlass) {
-        onUpdate(item.id, { hasGlass: true }, false);
+        onUpdate(item.id, { 
+          hasGlass: true,
+          glassOpacity: 0.2,
+          glassMetalness: 1.0,
+          glassRoughness: 0.0
+        }, false);
       } else {
         onUpdate(item.id, { hasGlass: false }, false);
       }
@@ -382,30 +447,38 @@ export const Furniture = React.memo(({
         const mesh = child as THREE.Mesh;
         if (mesh.isMesh && mesh.material) {
           const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-          const isModel = !!item.url;
           
           mats.forEach((mat: any) => {
+            // ARC-FIX: Apply Material Properties from Config (Support for Custom Materials on Models)
+            if (item.textureId && item.textureId !== 'none' && texConfig) {
+              if (texConfig.opacity !== undefined) {
+                mat.opacity = texConfig.opacity;
+                mat.transparent = mat.opacity < 0.99;
+              }
+              if (texConfig.metalness !== undefined) mat.metalness = texConfig.metalness;
+              if (texConfig.roughness !== undefined) mat.roughness = texConfig.roughness;
+              if (texConfig.color) mat.color.set(texConfig.color);
+            }
+
             // ARC-FIX: Get reflection properties
             const hasTransmission = mat.isMeshPhysicalMaterial && mat.transmission > 0;
             const isByName = mat.name && mat.name.toLowerCase().includes('glass');
             const isGlass = hasTransmission || isByName;
 
             // Apply environment intensity
-            // ARC-FIX: Handle showReflection toggle - ONLY apply to glass/transparent materials
-            // to avoid making the whole model dark (losing IBL)
-            const canReflect = item.showReflection === true;
+            const canReflect = showReflection === true;
             
-            if (isGlass && !canReflect) {
+            if (!canReflect) {
               mat.envMapIntensity = 0;
             } else if (item.envMapIntensity !== undefined) {
               mat.envMapIntensity = item.envMapIntensity;
-            } else if (isGlass) {
+            } else {
+              // Default intensity when enabled
               mat.envMapIntensity = 1.0;
             }
 
             // ARC-FIX: Force updates for materials that might be static
             if (mat.isMeshStandardMaterial || mat.isMeshPhysicalMaterial) {
-              // Connect to scene environment if not already linked (vitals for clones)
               if (!mat.envMap && scene.environment) {
                 mat.envMap = scene.environment;
               }
@@ -415,7 +488,24 @@ export const Furniture = React.memo(({
         }
       });
     }
-  }, [item.envMapIntensity, item.showReflection, scene.environment, item.url]); // Note: item.url check to see if it's a model
+  }, [item.envMapIntensity, showReflection, scene.environment, loadedScene, texConfig]); 
+// Note: item.url check to see if it's a model
+  
+  // ARC-FIX: Object level shadow sync (Traverses models to ensure children sync)
+  useEffect(() => {
+    if (meshRef.current) {
+      // Logic: Explicitly OFF if castShadow is false, otherwise default to context
+      const shouldCast = item.castShadow !== false;
+      const shouldReceive = !!realtimeShadows;
+      
+      meshRef.current.traverse((child) => {
+        if ((child as any).isMesh) {
+          child.castShadow = shouldCast;
+          child.receiveShadow = shouldReceive;
+        }
+      });
+    }
+  }, [item.castShadow, realtimeShadows, loadedScene]);
 
   const svgGeometry = useMemo(() => {
     if ((item.type === 'svg' || item.type === 'model') && item.svgData) {
@@ -591,8 +681,10 @@ export const Furniture = React.memo(({
         }
       });
       if (geometries.length > 0) {
-        baseGeo = mergeGeometries(geometries) || new THREE.BoxGeometry(1, 1, 1);
+        baseGeo = mergeGeometries(geometries) || new THREE.BoxGeometry(0.001, 0.001, 0.001);
       } else {
+        // If it's a model but we found no meshes yet, return null to avoid showing a box
+        if (item.type === 'model' || item.url) return null;
         baseGeo = new THREE.BoxGeometry(1, 1, 1);
       }
     } else {
@@ -667,59 +759,7 @@ export const Furniture = React.memo(({
   }, [item.type, item.url, item.dimensions, item.subtractions, item.isHollow, loadedScene, svgGeometry]);
 
 
-  const texConfig = useMemo(() => {
-    return ([
-      ...getPresetMaterials(),
-      ...customTextures
-    ].find(t => t.id === item.textureId)) as TextureConfig | undefined;
-  }, [item.textureId, customTextures]);
 
-  const mapUrls = useMemo(() => {
-    if (!texConfig || item.textureId === 'none') return null;
-    const urls: { [key: string]: string } = {};
-    if (texConfig.maps) {
-      Object.entries(texConfig.maps).forEach(([k, v]) => { if (v) urls[k] = v; });
-    } else if (texConfig.url) {
-      urls.color = texConfig.url;
-    }
-    return Object.keys(urls).length > 0 ? urls : null;
-  }, [texConfig, item.textureId]);
-
-  // Stable fallback for useTexture when no maps are needed
-  const dummyMap = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
-
-  // @ts-ignore
-  const loadedMaps = useTexture(mapUrls || { dummy: dummyMap });
-
-  const finalTextures = useMemo(() => {
-    if (!mapUrls || !loadedMaps) return null;
-
-    const result: { [key: string]: THREE.Texture } = {};
-    const useTiling = item.textureTiling !== false;
-    const densityX = item.textureDensity?.[0] ?? 1;
-    const densityY = item.textureDensity?.[1] ?? 1;
-    const offsetX = item.textureOffset?.[0] ?? 0;
-    const offsetY = item.textureOffset?.[1] ?? 0;
-
-    Object.keys(mapUrls).forEach(key => {
-      const t = (loadedMaps as any)[key]?.clone();
-      if (t) {
-        t.wrapS = t.wrapT = THREE.RepeatWrapping;
-        if (useTiling) {
-          const baseRepeatX = texConfig?.repeat?.[0] || 1;
-          const baseRepeatY = texConfig?.repeat?.[1] || 1;
-          t.repeat.set(baseRepeatX * densityX, baseRepeatY * densityY);
-          t.offset.set(offsetX, offsetY);
-        } else {
-          t.repeat.set(1, 1);
-          t.offset.set(0, 0);
-        }
-        result[key] = t;
-      }
-    });
-
-    return result;
-  }, [mapUrls, loadedMaps, item.textureTiling, item.textureDensity, item.textureOffset, texConfig]);
 
   // Performance Fix: Trigger material update ONLY when textures change
   useEffect(() => {
@@ -759,6 +799,13 @@ export const Furniture = React.memo(({
     };
   }, [item.id, registerMesh, geometry, svgGeometry, isSelected, item.type, item.url, item.dimensions, item.baseDimensions, onUpdate]);
 
+  // Pre-allocated objects for useFrame to avoid GC pressure and Illegal constructor errors
+  const _tempPos = useMemo(() => new THREE.Vector3(), []);
+  const _tempQuat = useMemo(() => new THREE.Quaternion(), []);
+  const _tempRot = useMemo(() => new THREE.Euler(), []);
+  const _lastQuat = useMemo(() => new THREE.Quaternion(), []);
+  const _currentQuat = useMemo(() => new THREE.Quaternion(), []);
+
   useFrame(() => {
     // Optimization: Only run heavy collision logic if object is selected OR was already colliding
     if (!meshRef.current || otherMeshes.length === 0 || (!isSelected && !isColliding)) {
@@ -768,21 +815,25 @@ export const Furniture = React.memo(({
     const currentRot = groupRef.current.rotation.clone();
 
     let colliding = checkCollisionAt(currentPos, currentRot, groupRef.current.scale);
-    if (colliding !== isColliding) setIsColliding(colliding);
+    
+    // Only update state if it actually changed to avoid unnecessary re-renders
+    if (colliding !== isColliding) {
+      setIsColliding(colliding);
+    }
 
     // If perfectly stuck (spawning, bad scaling, etc.), allow users to drag their way OUT.
     const isLastValidColliding = checkCollisionAt(lastValidPos.current, lastValidRot.current, groupRef.current.scale);
 
     if (colliding && isSelected && !isLastValidColliding) {
       let low = 0, high = 1;
-      const lastQuat = new THREE.Quaternion().setFromEuler(lastValidRot.current);
-      const currentQuat = new THREE.Quaternion().setFromEuler(currentRot);
+      _lastQuat.setFromEuler(lastValidRot.current);
+      _currentQuat.setFromEuler(currentRot);
       for (let i = 0; i < 10; i++) { // Increased precision to 10 steps
         const mid = (low + high) / 2;
-        const testPos = new THREE.Vector3().lerpVectors(lastValidPos.current, currentPos, mid);
-        const testQuat = new THREE.Quaternion().slerpQuaternions(lastQuat, currentQuat, mid);
-        const testRot = new THREE.Euler().setFromQuaternion(testQuat);
-        if (!checkCollisionAt(testPos, testRot, groupRef.current.scale)) {
+        _tempPos.lerpVectors(lastValidPos.current, currentPos, mid);
+        _tempQuat.slerpQuaternions(_lastQuat, _currentQuat, mid);
+        _tempRot.setFromQuaternion(_tempQuat);
+        if (!checkCollisionAt(_tempPos, _tempRot, groupRef.current.scale)) {
           low = mid;
         } else { high = mid; }
       }
@@ -791,12 +842,12 @@ export const Furniture = React.memo(({
       const dist = lastValidPos.current.distanceTo(currentPos);
       const gapT = 0.004 / (dist || 1);
       const finalT = Math.max(0, low - gapT);
-      const finalPos = new THREE.Vector3().lerpVectors(lastValidPos.current, currentPos, finalT);
-      const finalQuat = new THREE.Quaternion().slerpQuaternions(lastQuat, currentQuat, finalT);
-      const finalRot = new THREE.Euler().setFromQuaternion(finalQuat);
+      _tempPos.lerpVectors(lastValidPos.current, currentPos, finalT);
+      _tempQuat.slerpQuaternions(_lastQuat, _currentQuat, finalT);
+      _tempRot.setFromQuaternion(_tempQuat);
 
-      groupRef.current.position.copy(finalPos);
-      groupRef.current.rotation.copy(finalRot);
+      groupRef.current.position.copy(_tempPos);
+      groupRef.current.rotation.copy(_tempRot);
     } else if (!colliding) {
       lastValidPos.current.copy(currentPos);
       lastValidRot.current.copy(currentRot);
@@ -821,7 +872,7 @@ export const Furniture = React.memo(({
         position={item.position}
         rotation={item.rotation}
         scale={item.scale}
-        userData={{ id: item.id, isFurniture: true }}
+        userData={{ id: item.id, isFurniture: true, locked: item.locked }}
         onPointerDown={item.locked ? undefined : ((e) => { pointerDownPos.current = { x: e.clientX, y: e.clientY }; })}
         onPointerUp={item.locked ? undefined : ((e) => {
           if (pointerDownPos.current) {
@@ -841,15 +892,16 @@ export const Furniture = React.memo(({
         ) : (
           <mesh
             ref={meshRef}
+            visible={item.type !== 'model' || !!loadedScene}
             geometry={geometry as any}
-            userData={{ id: item.id, isFurniture: true }}
+            userData={{ id: item.id, isFurniture: true, locked: item.locked }}
             castShadow={item.castShadow !== undefined ? item.castShadow : (!!realtimeShadows && (texConfig?.opacity ?? 1) > 0.8)}
             receiveShadow={!!realtimeShadows}
             renderOrder={isSelected || isPreviewSelected ? 20 : (texConfig?.opacity ?? 1) < 0.99 ? 10 : 0}
             frustumCulled={false}
           >
             <meshStandardMaterial
-              color={item.color || texConfig?.color || (isSelected || isPreviewSelected ? "#60a5fa" : "#94a3b8")}
+              color={(item.textureId && item.textureId !== 'none') ? (texConfig?.color || "#ffffff") : (item.color || texConfig?.color || (isSelected || isPreviewSelected ? "#60a5fa" : "#94a3b8"))}
               map={finalTextures?.color || null}
               normalMap={finalTextures?.normal || null}
               roughnessMap={finalTextures?.roughness || null}
@@ -858,15 +910,15 @@ export const Furniture = React.memo(({
               displacementMap={finalTextures?.displacement || null}
               displacementScale={item.displacementScale ?? texConfig?.displacementScale ?? 0.1}
               emissiveMap={finalTextures?.emissive || null}
-              emissive={new THREE.Color(item.color || texConfig?.color || '#000000')}
+              emissive={(item.textureId && item.textureId !== 'none') ? (texConfig?.color || '#000000') : (item.color || texConfig?.color || '#000000')}
               emissiveIntensity={texConfig?.emissiveIntensity ?? (item.emissiveIntensity || 0)}
               alphaMap={finalTextures?.opacity || null}
               metalness={texConfig?.metalness ?? 0.1}
               roughness={texConfig?.roughness ?? 0.7}
-              envMapIntensity={item.showReflection === false ? 0 : (item.envMapIntensity ?? (isSelected || isPreviewSelected ? 0.2 : 1.0))}
+              envMapIntensity={item.showReflection === false ? 0 : (item.envMapIntensity ?? 1.0)}
               transparent={(texConfig?.opacity ?? 1) < 0.99 || !!finalTextures?.opacity}
               opacity={texConfig?.opacity ?? 1}
-              depthWrite={(texConfig?.opacity ?? 1) > 0.8 && !finalTextures?.opacity && !isSelected}
+              depthWrite={(texConfig?.opacity ?? 1) > 0.8 && !finalTextures?.opacity}
               depthTest={true}
               alphaTest={finalTextures?.opacity ? 0.05 : 0}
               side={
@@ -887,7 +939,7 @@ export const Furniture = React.memo(({
           renderOrder={1000} // Ensure it's rendered after everything else
         >
           <meshBasicMaterial
-            color={isColliding ? "#FF4458" : (isBoxSelecting ? isPreviewSelected : isSelected) ? "#38CC15" : (!isBoxSelecting && ctrlPressed && hovered) ? "#eab308" : "#38CC15"}
+            color={isColliding ? "#FF4458" : (isSelected && item.locked) ? "#eab308" : (isBoxSelecting ? isPreviewSelected : isSelected) ? "#38CC15" : (!isBoxSelecting && ctrlPressed && hovered) ? "#eab308" : "#38CC15"}
             wireframe
             transparent
             opacity={0.3}
@@ -1013,6 +1065,7 @@ export const Furniture = React.memo(({
     prev.gizmoMode === next.gizmoMode &&
     prev.selectedSubId === next.selectedSubId &&
     prev.isBoxSelecting === next.isBoxSelecting &&
-    prev.multiSelect === next.multiSelect
+    prev.multiSelect === next.multiSelect &&
+    prev.showReflection === next.showReflection
   );
 });

@@ -34,19 +34,4 @@ button, label {
   @apply bg-white/20;
 }
 
-/* Language specific adjustments */
-.lang-ko {
-  letter-spacing: -0.02em;
-}
 
-.lang-ko .tracking-widest {
-  letter-spacing: 0.03em !important;
-}
-
-.lang-ko .tracking-wider {
-  letter-spacing: 0.01em !important;
-}
-
-.lang-ko .tracking-tight {
-  letter-spacing: -0.05em !important;
-}

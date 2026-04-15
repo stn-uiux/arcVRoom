@@ -10,6 +10,14 @@ import { v4 as uuidv4 } from 'uuid';
 import { motion } from 'framer-motion';
 // @ts-ignore
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter';
+// @ts-ignore
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+// @ts-ignore
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
+
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+import { Box } from 'lucide-react';
 
 const staticTextures: TextureConfig[] = [];
 
@@ -36,7 +44,7 @@ const initialState: AppState = {
   gridColor: '#ffffff',
   showBackgroundColor: false,
   backgroundColor: '#ffffff',
-  language: 'ko'
+  language: 'en'
 };
 
 const expandSelectionWithGroups = (ids: string[], items: FurnitureItem[]): string[] => {
@@ -66,10 +74,12 @@ export default function App() {
   const zoomRef = useRef<HTMLDivElement>(null);
   const panRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<any>(null);
+  const viewCenterRef = useRef<[number, number, number]>([0, 0, 0]);
 
   const [shiftPressed, setShiftPressed] = useState(false);
   const [ctrlPressed, setCtrlPressed] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isDraggingViewport, setIsDraggingViewport] = useState(false);
 
   const saveToHistory = useCallback((newState: AppState) => {
     setHistory(prev => [...prev.slice(-19), state]);
@@ -123,7 +133,7 @@ export default function App() {
       id: uuidv4(),
       type,
       name: name || `New ${type.charAt(0).toUpperCase() + type.slice(1)}`,
-      position: [0, 0, 0],
+      position: [...viewCenterRef.current] as [number, number, number],
       rotation: [0, 0, 0],
       scale: [1, 1, 1],
       color: '#ffffff',
@@ -196,10 +206,18 @@ export default function App() {
 
   const handleUpdateItem = (id: string, updates: Partial<FurnitureItem>, undoable = true) => {
     if (undoable) saveToHistory(state);
-    setState(prev => ({
-      ...prev,
-      items: prev.items.map(item => item.id === id ? { ...item, ...updates } : item)
-    }));
+    setState(prev => {
+      const isLocking = updates.locked === true;
+      const nextSelectedIds = isLocking 
+        ? prev.selectedIds.filter(sid => sid !== id)
+        : prev.selectedIds;
+
+      return {
+        ...prev,
+        selectedIds: nextSelectedIds,
+        items: prev.items.map(item => item.id === id ? { ...item, ...updates } : item)
+      };
+    });
   };
 
   const handleUpdateLight = (id: string, updates: Partial<any>, undoable = false) => {
@@ -217,7 +235,7 @@ export default function App() {
       name: `New ${type.charAt(0).toUpperCase() + type.slice(1)} Light`,
       type: type as any,
       enabled: true,
-      position: [0, 4, 0] as [number, number, number],
+      position: [viewCenterRef.current[0], 4, viewCenterRef.current[2]] as [number, number, number],
       intensity: type === 'ambient' ? 0.5 : 1,
       color: '#ffffff',
       distance: 10,
@@ -238,10 +256,19 @@ export default function App() {
 
   const handleUpdateItems = (updatesMap: { [id: string]: Partial<FurnitureItem> }, undoable = true) => {
     if (undoable) saveToHistory(state);
-    setState(prev => ({
-      ...prev,
-      items: prev.items.map(item => updatesMap[item.id] ? { ...item, ...updatesMap[item.id] } : item)
-    }));
+    setState(prev => {
+      const lockedIds = Object.entries(updatesMap)
+        .filter(([_, up]) => up.locked === true)
+        .map(([id]) => id);
+      
+      const nextSelectedIds = prev.selectedIds.filter(sid => !lockedIds.includes(sid));
+
+      return {
+        ...prev,
+        selectedIds: nextSelectedIds,
+        items: prev.items.map(item => updatesMap[item.id] ? { ...item, ...updatesMap[item.id] } : item)
+      };
+    });
   };
 
   const handleUpdateLights = (updatesMap: { [id: string]: Partial<any> }, undoable = true) => {
@@ -549,7 +576,7 @@ export default function App() {
           name: item.name,
           position: [
             (item.center.x - globalRefCenterCenter.x) * scale,
-            isCeiling ? 3.995 : -0.005, // Architectural offset -0.005
+            isCeiling ? 4.0 : (isWall || isStrokeWall) ? 0 : -0.005,
             (item.center.y - globalRefCenterCenter.y) * scale
           ],
           rotation: [0, 0, 0],
@@ -560,7 +587,10 @@ export default function App() {
           doubleSide: !(isCeiling || isStrokeWall), // ArcLabV: backfaceCulling ON for ceiling/strokeWall
           flipNormals: (isCeiling || isStrokeWall), // ArcLabV: flipNormals ON for ceiling/strokeWall
           isHollow: isStrokeWall,
-          subtractions: []
+          subtractions: [],
+          glassOpacity: (item.id === 'glass') ? 0.2 : undefined,
+          glassMetalness: (item.id === 'glass') ? 1.0 : undefined,
+          glassRoughness: (item.id === 'glass') ? 0.0 : undefined
         };
         localNewObjects.push(newItem);
       });
@@ -573,7 +603,7 @@ export default function App() {
       }));
       setSelectedSubId(null);
     } else {
-      alert('No groups with id "wall", "glass", "ceiling", or "floor" found in SVG.');
+      alert('오류: SVG 파일 내부에 "wall", "floor", "ceiling" ID 정보가 하나도 없습니다.\n도면으로 변환할 레이어의 ID 설정을 확인해 주세요.');
     }
   };
 
@@ -624,14 +654,58 @@ export default function App() {
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    setIsDraggingViewport(false);
     const files = Array.from(e.dataTransfer.files);
+    
     files.forEach(file => {
       const name = file.name.toLowerCase();
+      const extension = name.split('.').pop() || '';
+      const supported = ['gltf', 'glb', 'svg'];
+      
+      if (!supported.includes(extension)) {
+        alert(`지원하지 않는 파일 형식입니다: .${extension}\n(GLTF, GLB, SVG 파일만 드래그 앤 드롭이 가능합니다.)`);
+        return;
+      }
+
+      const cleanName = file.name.replace(/\.[^/.]+$/, "");
+
       if (name.endsWith('.gltf') || name.endsWith('.glb')) {
         const reader = new FileReader();
-        const cleanName = file.name.replace(/\.[^/.]+$/, "");
-        reader.onload = (ev) => handleAddItem('model' as FurnitureType, ev.target?.result as string, cleanName);
-        reader.readAsDataURL(file);
+        reader.onload = async (ev) => {
+          const content = ev.target?.result;
+          if (!content) return;
+
+          // GLTF Validation: Check for materials information
+          const loader = new GLTFLoader();
+          loader.setDRACOLoader(dracoLoader);
+          loader.parse(content, '', 
+            (gltf: any) => {
+              const hasMaterials = gltf.parser.json.materials && gltf.parser.json.materials.length > 0;
+              if (!hasMaterials) {
+                alert(`오류: GLTF 파일("${file.name}") 내부에 Materials(재질) 정보가 하나도 없습니다.\n정상적인 렌더링을 위해 재질이 포함된 파일을 사용해 주세요.`);
+              } else {
+                // To support Furniture.tsx loading via URL, we convert the result back to DataURL if it wasn't already
+                // Or just use readAsDataURL initially for the actual add, and this content for validation.
+                // Let's keep it simple: we already have the content. For Furniture.tsx to work, it needs a URL.
+                // DataURL is best for that.
+                const dataUrlReader = new FileReader();
+                dataUrlReader.onload = (dataEv) => {
+                  handleAddItem('model' as FurnitureType, dataEv.target?.result as string, cleanName);
+                };
+                dataUrlReader.readAsDataURL(file);
+              }
+            },
+            (error: any) => {
+              alert(`GLTF 파싱 중 오류가 발생했습니다: ${error.message || '알 수 없는 오류'}`);
+            }
+          );
+        };
+
+        if (name.endsWith('.glb')) {
+          reader.readAsArrayBuffer(file);
+        } else {
+          reader.readAsText(file);
+        }
       } else if (name.endsWith('.svg')) {
         handleSvgUpload([file]);
       }
@@ -641,7 +715,22 @@ export default function App() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
+      
       const isCmd = e.ctrlKey || e.metaKey;
+      
+      if (isCmd && e.shiftKey && e.key.toLowerCase() === 'l') {
+        e.preventDefault();
+        if (state.selectedIds.length > 0) {
+          const updates: { [id: string]: Partial<FurnitureItem> } = {};
+          const anyUnlocked = state.items.some(i => state.selectedIds.includes(i.id) && !i.locked);
+          state.selectedIds.forEach(id => {
+            updates[id] = { locked: anyUnlocked };
+          });
+          handleUpdateItems(updates);
+        }
+        return;
+      }
+
       if (e.key === 'Delete' || e.key === 'Backspace') handleDeleteItems();
       else if (e.key.toLowerCase() === 'z' && isCmd) {
         if (e.shiftKey) redo(); else undo();
@@ -669,13 +758,33 @@ export default function App() {
   }, [handleDeleteItems, undo, redo, handleCopy, handlePaste, handleGroup, handleUngroup]);
 
   return (
-    <div
-      className={`w-full h-screen flex bg-[#0a0a0a] overflow-hidden ${state.language === 'ko' ? 'lang-ko' : 'lang-en'}`}
-      onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); }}
-      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-      onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDrop(e); }}
+    <div 
+      className="w-full h-screen grid bg-[#0a0a0a] overflow-hidden"
+      style={{ 
+        gridTemplateColumns: `1fr ${sidebarOpen ? '360px' : '0px'}`,
+        transition: 'grid-template-columns 0.5s ease-in-out'
+      }}
     >
-      <div className="flex-1 relative h-full overflow-hidden">
+      <div 
+        className={`relative h-full overflow-hidden ${isDraggingViewport ? 'ring-4 ring-inset ring-emerald-500 shadow-[0_0_50px_rgba(16,185,129,0.3)]' : ''}`}
+        onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingViewport(true); }}
+        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingViewport(true); }}
+        onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingViewport(false); }}
+        onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDrop(e); }}
+      >
+        {isDraggingViewport && (
+          <div className="absolute inset-0 z-[100] flex flex-col items-center justify-center bg-emerald-500/10 backdrop-blur-[2px] pointer-events-none animate-in fade-in duration-300">
+            <div className="bg-[#0a0a0a]/90 p-8 rounded-[40px] border border-emerald-500/30 shadow-2xl flex flex-col items-center gap-4 transform scale-110">
+              <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center animate-bounce">
+                <Box className="w-8 h-8 text-emerald-500" />
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-black uppercase tracking-widest text-white">{state.language === 'ko' ? '에셋 드롭하여 로드' : 'Drop to Load Assets'}</p>
+                <p className="text-[10px] font-bold text-emerald-500/60 uppercase mt-1">GLTF • GLB • SVG</p>
+              </div>
+            </div>
+          </div>
+        )}
         <Scene
           ref={sceneRef}
           state={state}
@@ -695,6 +804,7 @@ export default function App() {
           shiftPressed={shiftPressed}
           ctrlPressed={ctrlPressed}
           showGizmos={showGizmos}
+          viewCenterRef={viewCenterRef}
           onUpdateState={(updates) => setState(prev => ({ ...prev, ...updates }))}
         />
       </div>
