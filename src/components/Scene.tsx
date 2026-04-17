@@ -16,6 +16,7 @@ import {
 import { Furniture } from './Furniture';
 import { EffectComposer, Bloom, Vignette, SMAA } from '@react-three/postprocessing';
 import { FurnitureItem, AppState } from '../types';
+import { ACCENT_400, accentRgba } from '../theme';
 
 import { selectionMeshesRef } from '../selectionRegistry';
 import * as THREE from 'three';
@@ -466,7 +467,7 @@ function PointLightDistanceGizmo({
       {isSelected && handlePositions.map((pos, i) => (
         <mesh key={i} position={pos} onPointerDown={onPointerDown} onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = 'move'; }} onPointerOut={(e) => { e.stopPropagation(); document.body.style.cursor = 'auto'; }}>
           <sphereGeometry args={[handleSize, 16, 16]} />
-          <meshBasicMaterial color={activeHandle.current ? "#10b981" : "#fbbf24"} depthTest={false} />
+          <meshBasicMaterial color={activeHandle.current ? ACCENT_400 : "#fbbf24"} depthTest={false} />
         </mesh>
       ))}
     </group>
@@ -648,7 +649,7 @@ function SpotLightGizmo({
             onPointerOut={(e) => { e.stopPropagation(); document.body.style.cursor = 'auto'; }}
           >
             <coneGeometry args={coneArgs} />
-            <meshBasicMaterial color={handleType === 'distance' ? "#10b981" : "#fbbf24"} depthTest={false} transparent opacity={0.9} />
+            <meshBasicMaterial color={handleType === 'distance' ? ACCENT_400 : "#fbbf24"} depthTest={false} transparent opacity={0.9} />
           </mesh>
 
           {/* Angle Rim Handle */}
@@ -659,7 +660,7 @@ function SpotLightGizmo({
             onPointerOut={(e) => { e.stopPropagation(); document.body.style.cursor = 'auto'; }}
           >
             <torusGeometry args={torusArgs} />
-            <meshBasicMaterial color={handleType === 'angle' ? "#10b981" : "#fbbf24"} transparent opacity={handleType === 'angle' ? 1 : 0.5} depthTest={false} />
+            <meshBasicMaterial color={handleType === 'angle' ? ACCENT_400 : "#fbbf24"} transparent opacity={handleType === 'angle' ? 1 : 0.5} depthTest={false} />
           </mesh>
         </>
       )}
@@ -766,7 +767,7 @@ function LightWithHelper({
             <Html center zIndexRange={[10, 0]}>
               <div
                 onClick={(e) => { e.stopPropagation(); onSelectLight(config.id, e.ctrlKey || e.metaKey); }}
-                className={`flex items-center justify-center p-1.5 rounded-full transition-all cursor-pointer shadow-lg border ${isSelected ? 'bg-emerald-500 border-white text-white scale-125' : 'bg-black/60 border-white/20 text-white/80'}`}
+                className={`flex items-center justify-center p-1.5 rounded-full transition-all cursor-pointer shadow-lg border ${isSelected ? 'bg-teal-500 border-white text-white scale-125' : 'bg-black/60 border-white/20 text-white/80'}`}
                 style={{ backdropFilter: 'blur(4px)' }}
               >
                 {config.type === 'point' && <Lightbulb className="w-3 h-3" />}
@@ -908,22 +909,34 @@ export const Scene = forwardRef<any, SceneProps>(({
     }), [scene, camera, gl]);
 
     useFrame((state) => {
+      // 1. Sync zoom percentage for UI
       if (controlsRef.current) {
         const target = (controlsRef.current as any).target;
-        if (!target) return;
-        
-        const dist = state.camera.position.distanceTo(target);
-        // ARC-FIX: Prevent division by zero or NaN if distance is extremely small
-        const safeDist = Math.max(0.1, dist);
-        const p = Math.round((26 / safeDist) * 100);
-        if (p !== lastPercent.current) {
-          onZoomChange(p);
-          lastPercent.current = p;
+        if (target) {
+          const dist = state.camera.position.distanceTo(target);
+          const safeDist = Math.max(0.1, dist);
+          const p = Math.round((26 / safeDist) * 100);
+          if (p !== lastPercent.current) {
+            onZoomChange(p);
+            lastPercent.current = p;
+          }
         }
+      }
 
-        // ARC-FIX: Sync current focus point for spawning new objects
-        if (viewCenterRef) {
-          viewCenterRef.current = [target.x, target.y, target.z];
+      // 2. ARC-FIX: Calculate floor (Y=0) intersection AT SCREEN CENTER for spawning
+      if (viewCenterRef) {
+        const raycaster = new THREE.Raycaster();
+        raycaster.setFromCamera(new THREE.Vector2(0, 0), state.camera);
+        const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+        const intersectPoint = new THREE.Vector3();
+        
+        if (raycaster.ray.intersectPlane(groundPlane, intersectPoint)) {
+          // Point on the floor at screen center
+          viewCenterRef.current = [intersectPoint.x, 0, intersectPoint.z];
+        } else if (controlsRef.current) {
+          // Fallback to orbit target if camera is looking away from floor
+          const target = (controlsRef.current as any).target;
+          viewCenterRef.current = [target.x, 0, target.z];
         }
       }
     });
@@ -1300,8 +1313,8 @@ export const Scene = forwardRef<any, SceneProps>(({
             top: Math.min(selectionBox.start[1], selectionBox.end[1]),
             width: Math.abs(selectionBox.end[0] - selectionBox.start[0]),
             height: Math.abs(selectionBox.end[1] - selectionBox.start[1]),
-            border: '1px solid #10b981',
-            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            border: `1px solid ${ACCENT_400}`,
+            backgroundColor: accentRgba(0.1),
             pointerEvents: 'none',
             zIndex: 100,
             borderRadius: '2px'
@@ -1321,10 +1334,10 @@ export const Scene = forwardRef<any, SceneProps>(({
               onUpdate(contextMenu.itemId, { locked: !contextMenu.isLocked });
               setContextMenu(null);
             }}
-            className="w-full px-4 py-2.5 text-[10px] font-black text-white hover:bg-emerald-500 hover:text-black transition-all flex items-center justify-between gap-4 uppercase tracking-[0.1em] text-left"
+            className="w-full px-4 py-2.5 text-[10px] font-black text-white hover:bg-teal-500 hover:text-black transition-all flex items-center justify-between gap-4 uppercase tracking-[0.1em] text-left"
           >
             <div className="flex items-center gap-2">
-              {contextMenu.isLocked ? <Unlock size={12} className="text-emerald-500" /> : <Lock size={12} className="text-white/40" />}
+              {contextMenu.isLocked ? <Unlock size={12} className="text-teal-500" /> : <Lock size={12} className="text-white/40" />}
               <span>{contextMenu.isLocked ? (state.language === 'ko' ? '잠금 해제' : 'Unlock') : (state.language === 'ko' ? '레이어 잠금' : 'Lock Layer')}</span>
             </div>
           </button>

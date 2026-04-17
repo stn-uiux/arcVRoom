@@ -11,6 +11,7 @@ import { FurnitureItem, TextureConfig, SubtractionItem } from '../types';
 import { DigitalClock } from './DigitalClock';
 import { getPresetMaterials } from './MaterialsLibrary';
 import { selectionMeshesRef } from '../selectionRegistry';
+import { ACCENT_400 } from '../theme';
 import { Evaluator, Brush, SUBTRACTION } from 'three-bvh-csg';
 
 // Set global DRACO decoder path for useGLTF
@@ -103,7 +104,7 @@ const SubtractionGizmo: React.FC<{
           {sub.type === 'cylinder' && <cylinderGeometry args={[sub.dimensions[0] / 2, sub.dimensions[0] / 2, sub.dimensions[1], 16]} />}
           <meshBasicMaterial
             wireframe
-            color={isSelected ? "#10b981" : "#FF4458"}
+            color={isSelected ? ACCENT_400 : "#FF4458"}
             transparent
             opacity={isSelected ? 0.8 : 0.3}
             depthTest={false}
@@ -305,7 +306,7 @@ export const Furniture = React.memo(({
       const tempBox = new THREE.Box3().setFromObject(clone);
       const center = tempBox.getCenter(new THREE.Vector3());
 
-      // Center X,Z and ground Y
+      // X, Z는 중앙 정렬, Y는 모델의 바닥(min.y)을 0점에 맞춰 기즈모와 일치시킴
       clone.position.set(-center.x, -tempBox.min.y, -center.z);
 
       clone.traverse((child) => {

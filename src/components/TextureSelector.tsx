@@ -55,7 +55,7 @@ export const TextureSelector: React.FC<TextureSelectorProps> = ({ textures, sele
                 e.preventDefault();
                 setContextMenu({ x: e.clientX, y: e.clientY, id: tex.id });
               }}
-              className={`aspect-square rounded-lg overflow-hidden border relative group transition-all ${tex.id === selectedId ? 'border-emerald-500 ring-1 ring-emerald-500/20' : 'border-white/5 hover:border-white/20'}`}
+              className={`aspect-square rounded-lg overflow-hidden border relative group transition-all ${tex.id === selectedId ? 'border-teal-500 ring-1 ring-teal-500/20' : 'border-white/5 hover:border-white/20'}`}
               title={tex.isCustom ? `${tex.name} (${t('Right click to edit', '우클릭으로 수정')})` : tex.name}
             >
               {(tex.url || tex.maps?.color) ? (
@@ -64,7 +64,7 @@ export const TextureSelector: React.FC<TextureSelectorProps> = ({ textures, sele
                 <div className="w-full h-full" style={{ backgroundColor: tex.color || '#999' }} />
               )}
               {tex.id === selectedId && (
-                <div className="absolute inset-0 bg-emerald-500/30 flex items-center justify-center backdrop-blur-[1px]">
+                <div className="absolute inset-0 bg-teal-500/30 flex items-center justify-center backdrop-blur-[1px]">
                   <Check size={14} className="text-white" />
                 </div>
               )}
@@ -76,7 +76,7 @@ export const TextureSelector: React.FC<TextureSelectorProps> = ({ textures, sele
       {/* Context Menu Portal (Simplified floating div) */}
       {contextMenu && (
         <div 
-          className="fixed z-[9999] bg-[#1a1a1a] border border-emerald-500/30 rounded-lg shadow-2xl py-1 transform -translate-x-1/2"
+          className="fixed z-[9999] bg-[#1a1a1a] border border-teal-500/30 rounded-lg shadow-2xl py-1 transform -translate-x-1/2"
           style={{ top: contextMenu.y + 5, left: contextMenu.x }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -86,7 +86,7 @@ export const TextureSelector: React.FC<TextureSelectorProps> = ({ textures, sele
               setContextMenu(null);
               setIsOpen(false);
             }}
-            className="w-full px-4 py-2 text-[10px] font-black text-white hover:bg-emerald-500 hover:text-black transition-all flex items-center gap-2 whitespace-nowrap uppercase tracking-widest"
+            className="w-full px-4 py-2 text-[10px] font-black text-white hover:bg-teal-500 hover:text-black transition-all flex items-center gap-2 whitespace-nowrap uppercase tracking-widest"
           >
             <Box size={10} />
             {t('Modify Material', '재질 수정')}

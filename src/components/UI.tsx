@@ -58,6 +58,7 @@ import { AssetLibrary } from './AssetLibrary';
 import { MaterialsLibrary, usePresetMaterials } from './MaterialsLibrary';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FloorplanToSvg } from './FloorplanToSvg';
+import { ACCENT_400, accentRgba } from '../theme';
 
 interface UIProps {
   state: AppState;
@@ -148,7 +149,7 @@ export const UI: React.FC<UIProps> = ({
       return (
         <input
           autoFocus
-          className="w-10 bg-emerald-500/10 border border-emerald-500/50 rounded text-[10px] text-emerald-500 font-mono px-1 outline-none"
+          className="w-10 bg-teal-500/10 border border-teal-500/50 rounded text-[10px] text-teal-500 font-mono px-1 outline-none"
           value={tempValue}
           onChange={(e) => setTempValue(e.target.value)}
           onBlur={() => {
@@ -171,8 +172,8 @@ export const UI: React.FC<UIProps> = ({
       );
     }
     return (
-      <span 
-        className="text-emerald-500 cursor-pointer hover:underline decoration-emerald-500/30"
+      <span
+        className="text-teal-500 cursor-pointer hover:underline decoration-teal-500/30"
         onClick={() => {
           setTempValue(value.toString());
           setIsEditing(true);
@@ -238,7 +239,7 @@ export const UI: React.FC<UIProps> = ({
       internalUIActionRef.current = false;
       return;
     }
-    
+
     // If it was an internal UI action (list click, item add), don't scroll top
     if (internalUIActionRef.current) {
       internalUIActionRef.current = false;
@@ -251,7 +252,7 @@ export const UI: React.FC<UIProps> = ({
 
       const isLight = state.lights.some(l => l.id === lastId);
       const isItem = state.items.some(i => i.id === lastId);
-      
+
       const sectionId = isLight ? 'lights-section' : 'scene-objects-section';
       const sectionEl = document.getElementById(sectionId);
       const itemPanelId = (isLight ? 'light-panel-' : 'object-panel-') + lastId;
@@ -261,7 +262,7 @@ export const UI: React.FC<UIProps> = ({
       if (sectionEl) {
         sectionEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
-      
+
       // 2. Scroll the internal list to show the specific layer at the top
       if (itemEl) {
         // Small delay to ensure the outer scroll doesn't conflict with internal scroll
@@ -278,7 +279,7 @@ export const UI: React.FC<UIProps> = ({
   const [presetMaterials] = usePresetMaterials();
   const allTextures = [
     { id: 'none', name: 'None', color: '#94a3b8' },
-    ...staticTextures, 
+    ...staticTextures,
     ...presetMaterials.map(m => ({ ...m, name: `[Library] ${m.name}` })),
     ...(state.customTextures || []).map(t => ({ ...t, isCustom: true }))
   ];
@@ -304,7 +305,7 @@ export const UI: React.FC<UIProps> = ({
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-40">
         <div className="absolute top-6 left-6 pointer-events-auto flex items-center gap-3">
           <div className="flex items-center gap-3 glass-panel px-4 py-2 rounded-full border border-white/10 shadow-2xl">
-            <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center">
+            <div className="w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center">
               <Box className="w-5 h-5 text-black" />
             </div>
             <div>
@@ -316,13 +317,13 @@ export const UI: React.FC<UIProps> = ({
           <div className="flex bg-black/40 backdrop-blur-xl border border-white/10 rounded-full p-1 shadow-2xl">
             <button
               onClick={() => onUpdateState({ language: 'ko' })}
-              className={`px-3 py-1 rounded-full text-[10px] font-black uppercase transition-all ${state.language === 'ko' ? 'bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'text-white/40 hover:text-white/70'}`}
+              className={`px-3 py-1 rounded-full text-[10px] font-black uppercase transition-all ${state.language === 'ko' ? `bg-teal-500 text-black shadow-[0_0_15px_${accentRgba(0.3)}]` : 'text-white/40 hover:text-white/70'}`}
             >
               KO
             </button>
             <button
               onClick={() => onUpdateState({ language: 'en' })}
-              className={`px-3 py-1 rounded-full text-[10px] font-black uppercase transition-all ${state.language === 'en' ? 'bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'text-white/40 hover:text-white/70'}`}
+              className={`px-3 py-1 rounded-full text-[10px] font-black uppercase transition-all ${state.language === 'en' ? `bg-teal-500 text-black shadow-[0_0_15px_${accentRgba(0.3)}]` : 'text-white/40 hover:text-white/70'}`}
             >
               EN
             </button>
@@ -334,16 +335,16 @@ export const UI: React.FC<UIProps> = ({
           {state.selectedIds.length > 1 && onAlign && onDistribute && (
             <div
               id="alignment-tools-modal"
-              style={{ 
+              style={{
                 right: sidebarOpen ? '480px' : '160px',
                 top: '24px',
                 transition: 'right 0.5s ease-in-out'
               }}
-              className="absolute pointer-events-auto overflow-hidden border border-emerald-500/20 bg-black/80 backdrop-blur-xl rounded-2xl p-3 space-y-2 shadow-[0_15px_35px_rgba(0,0,0,0.5)] w-[200px]"
+              className="absolute pointer-events-auto overflow-hidden border border-teal-500/20 bg-black/80 backdrop-blur-xl rounded-2xl p-3 space-y-2 shadow-[0_15px_35px_rgba(0,0,0,0.5)] w-[200px]"
             >
               <div className="flex items-center justify-between mb-1 pb-1.5 border-b border-white/10">
-                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500/80">Alignment</span>
-                <span className="text-[10px] font-mono text-emerald-500/60 uppercase font-black">{state.selectedIds.length} Selected</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-teal-500/80">Alignment</span>
+                <span className="text-[10px] font-mono text-teal-500/60 uppercase font-black">{state.selectedIds.length} Selected</span>
               </div>
 
               {/* X Axis */}
@@ -351,10 +352,10 @@ export const UI: React.FC<UIProps> = ({
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-black text-white/30 w-2.5">X</span>
                   <div className="flex gap-1 flex-1">
-                    <button onClick={() => onAlign(0, 'min')} title="Align Left" className="flex-1 h-6 flex items-center justify-center bg-white/5 hover:bg-emerald-500 text-white hover:text-black rounded-md transition-all border border-white/10"><AlignLeft size={10} /></button>
-                    <button onClick={() => onAlign(0, 'center')} title="Align Center X" className="flex-1 h-6 flex items-center justify-center bg-white/5 hover:bg-emerald-500 text-white hover:text-black rounded-md transition-all border border-white/10"><AlignCenterH size={10} /></button>
-                    <button onClick={() => onAlign(0, 'max')} title="Align Right" className="flex-1 h-6 flex items-center justify-center bg-white/5 hover:bg-emerald-500 text-white hover:text-black rounded-md transition-all border border-white/10"><AlignRight size={10} /></button>
-                    <button onClick={() => onDistribute(0)} title="Distribute X" className="flex-1 h-6 flex items-center justify-center bg-white/5 hover:bg-emerald-500 text-white hover:text-black rounded-md transition-all border border-emerald-500/30 border-dashed"><MoveHorizontal size={10} /></button>
+                    <button onClick={() => onAlign(0, 'min')} title="Align Left" className="flex-1 h-6 flex items-center justify-center bg-white/5 hover:bg-teal-500 text-white hover:text-black rounded-md transition-all border border-white/10"><AlignLeft size={10} /></button>
+                    <button onClick={() => onAlign(0, 'center')} title="Align Center X" className="flex-1 h-6 flex items-center justify-center bg-white/5 hover:bg-teal-500 text-white hover:text-black rounded-md transition-all border border-white/10"><AlignCenterH size={10} /></button>
+                    <button onClick={() => onAlign(0, 'max')} title="Align Right" className="flex-1 h-6 flex items-center justify-center bg-white/5 hover:bg-teal-500 text-white hover:text-black rounded-md transition-all border border-white/10"><AlignRight size={10} /></button>
+                    <button onClick={() => onDistribute(0)} title="Distribute X" className="flex-1 h-6 flex items-center justify-center bg-white/5 hover:bg-teal-500 text-white hover:text-black rounded-md transition-all border border-teal-500/30 border-dashed"><MoveHorizontal size={10} /></button>
                   </div>
                 </div>
               </div>
@@ -364,10 +365,10 @@ export const UI: React.FC<UIProps> = ({
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-black text-white/30 w-2.5">Y</span>
                   <div className="flex gap-1 flex-1">
-                    <button onClick={() => onAlign(1, 'min')} title="Align Bottom" className="flex-1 h-6 flex items-center justify-center bg-white/5 hover:bg-emerald-500 text-white hover:text-black rounded-md transition-all border border-white/10"><AlignBottom size={10} /></button>
-                    <button onClick={() => onAlign(1, 'center')} title="Align Center Y" className="flex-1 h-6 flex items-center justify-center bg-white/5 hover:bg-emerald-500 text-white hover:text-black rounded-md transition-all border border-white/10"><AlignCenterV size={10} /></button>
-                    <button onClick={() => onAlign(1, 'max')} title="Align Top" className="flex-1 h-6 flex items-center justify-center bg-white/5 hover:bg-emerald-500 text-white hover:text-black rounded-md transition-all border border-white/10"><AlignTop size={10} /></button>
-                    <button onClick={() => onDistribute(1)} title="Distribute Y" className="flex-1 h-6 flex items-center justify-center bg-white/5 hover:bg-emerald-500 text-white hover:text-black rounded-md transition-all border border-emerald-500/30 border-dashed"><MoveVertical size={10} /></button>
+                    <button onClick={() => onAlign(1, 'min')} title="Align Bottom" className="flex-1 h-6 flex items-center justify-center bg-white/5 hover:bg-teal-500 text-white hover:text-black rounded-md transition-all border border-white/10"><AlignBottom size={10} /></button>
+                    <button onClick={() => onAlign(1, 'center')} title="Align Center Y" className="flex-1 h-6 flex items-center justify-center bg-white/5 hover:bg-teal-500 text-white hover:text-black rounded-md transition-all border border-white/10"><AlignCenterV size={10} /></button>
+                    <button onClick={() => onAlign(1, 'max')} title="Align Top" className="flex-1 h-6 flex items-center justify-center bg-white/5 hover:bg-teal-500 text-white hover:text-black rounded-md transition-all border border-white/10"><AlignTop size={10} /></button>
+                    <button onClick={() => onDistribute(1)} title="Distribute Y" className="flex-1 h-6 flex items-center justify-center bg-white/5 hover:bg-teal-500 text-white hover:text-black rounded-md transition-all border border-teal-500/30 border-dashed"><MoveVertical size={10} /></button>
                   </div>
                 </div>
               </div>
@@ -377,10 +378,10 @@ export const UI: React.FC<UIProps> = ({
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-black text-white/30 w-2.5">Z</span>
                   <div className="flex gap-1 flex-1">
-                    <button onClick={() => onAlign(2, 'min')} title="Align Back" className="flex-1 h-6 flex items-center justify-center bg-white/5 hover:bg-emerald-500 text-white hover:text-black rounded-md transition-all border border-white/10"><AlignLeft className="rotate-90" size={10} /></button>
-                    <button onClick={() => onAlign(2, 'center')} title="Align Center Z" className="flex-1 h-6 flex items-center justify-center bg-white/5 hover:bg-emerald-500 text-white hover:text-black rounded-md transition-all border border-white/10"><AlignCenterH className="rotate-90" size={10} /></button>
-                    <button onClick={() => onAlign(2, 'max')} title="Align Front" className="flex-1 h-6 flex items-center justify-center bg-white/5 hover:bg-emerald-500 text-white hover:text-black rounded-md transition-all border border-white/10"><AlignRight className="rotate-90" size={10} /></button>
-                    <button onClick={() => onDistribute(2)} title="Distribute Z" className="flex-1 h-6 flex items-center justify-center bg-white/5 hover:bg-emerald-500 text-white hover:text-black rounded-md transition-all border border-emerald-500/30 border-dashed"><MoreHorizontal size={10} /></button>
+                    <button onClick={() => onAlign(2, 'min')} title="Align Back" className="flex-1 h-6 flex items-center justify-center bg-white/5 hover:bg-teal-500 text-white hover:text-black rounded-md transition-all border border-white/10"><AlignLeft className="rotate-90" size={10} /></button>
+                    <button onClick={() => onAlign(2, 'center')} title="Align Center Z" className="flex-1 h-6 flex items-center justify-center bg-white/5 hover:bg-teal-500 text-white hover:text-black rounded-md transition-all border border-white/10"><AlignCenterH className="rotate-90" size={10} /></button>
+                    <button onClick={() => onAlign(2, 'max')} title="Align Front" className="flex-1 h-6 flex items-center justify-center bg-white/5 hover:bg-teal-500 text-white hover:text-black rounded-md transition-all border border-white/10"><AlignRight className="rotate-90" size={10} /></button>
+                    <button onClick={() => onDistribute(2)} title="Distribute Z" className="flex-1 h-6 flex items-center justify-center bg-white/5 hover:bg-teal-500 text-white hover:text-black rounded-md transition-all border border-teal-500/30 border-dashed"><MoreHorizontal size={10} /></button>
                   </div>
                 </div>
               </div>
@@ -389,7 +390,7 @@ export const UI: React.FC<UIProps> = ({
         </AnimatePresence>
 
         <div
-          style={{ 
+          style={{
             right: sidebarOpen ? '376px' : '16px',
             transition: 'right 0.5s ease-in-out'
           }}
@@ -411,7 +412,7 @@ export const UI: React.FC<UIProps> = ({
           </div>
           <div
             onClick={onFitToSelection}
-            className="bg-[#2a2a2a] hover:bg-[#3a3a3a] text-emerald-500 rounded-full p-2.5 cursor-pointer shadow-xl flex items-center justify-center w-10 h-10 border border-white/5 transition-colors"
+            className="bg-[#2a2a2a] hover:bg-[#3a3a3a] text-teal-500 rounded-full p-2.5 cursor-pointer shadow-xl flex items-center justify-center w-10 h-10 border border-white/5 transition-colors"
             title="Fit to Model"
           >
             <Maximize size={18} />
@@ -419,7 +420,7 @@ export const UI: React.FC<UIProps> = ({
 
           <div className="mt-1 glass-panel px-2.5 py-1.5 rounded-xl border border-white/5 flex flex-col items-center bg-black/60 shadow-inner">
             <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest leading-none mb-1">Zoom</span>
-            <span className="text-[10px] font-mono font-black text-emerald-500">{state.zoomPercent}%</span>
+            <span className="text-[10px] font-mono font-black text-teal-500">{state.zoomPercent}%</span>
           </div>
         </div>
 
@@ -427,9 +428,9 @@ export const UI: React.FC<UIProps> = ({
         <div className="absolute bottom-6 left-6 pointer-events-auto z-20">
           <button
             onClick={() => setShowFloorplanModal(true)}
-            className="flex items-center gap-2.5 px-5 py-3 bg-[#1a1a1a]/90 backdrop-blur-xl hover:bg-emerald-500 text-white/70 hover:text-black rounded-2xl border border-white/10 hover:border-emerald-500 transition-all shadow-[0_10px_40px_rgba(0,0,0,0.5)] group"
+            className="flex items-center gap-2.5 px-5 py-3 bg-[#1a1a1a]/90 backdrop-blur-xl hover:bg-teal-500 text-white/70 hover:text-black rounded-2xl border border-white/10 hover:border-teal-500 transition-all shadow-[0_10px_40px_rgba(0,0,0,0.5)] group"
           >
-            <svg className="w-4 h-4 text-emerald-500 group-hover:text-black transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg className="w-4 h-4 text-teal-500 group-hover:text-black transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="3" width="18" height="18" rx="2" />
               <path d="M3 9h18M9 3v18" />
             </svg>
@@ -446,7 +447,7 @@ export const UI: React.FC<UIProps> = ({
               className="absolute bottom-10 left-1/2 -translate-x-1/2 pointer-events-auto"
             >
               <div className="glass-panel px-8 py-3 rounded-full border border-white/10 opacity-90 flex items-center gap-3 shadow-2xl">
-                <Upload className="w-4 h-4 text-emerald-500" />
+                <Upload className="w-4 h-4 text-teal-500" />
                 <span className="text-[11px] text-white/80 font-mono tracking-widest uppercase font-bold">
                   {t('Drag & Drop .gltf, .glb, or .svg to load', '.gltf, .glb, 또는 .svg 파일을 드래그하여 불러오세요')}
                 </span>
@@ -457,40 +458,41 @@ export const UI: React.FC<UIProps> = ({
       </div>
 
       <aside
-        style={{ 
+        style={{
           width: sidebarOpen ? '360px' : '0px',
           opacity: sidebarOpen ? 1 : 0,
-          transition: 'width 0.5s ease-in-out, opacity 0.5s ease-in-out'
+          transition: 'width 0.5s ease-in-out, opacity 0.5s ease-in-out',
+          background: `radial-gradient(circle at bottom right, rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.1) 0%, #1a1a1a 80%)`
         }}
         className="h-full border-l border-white/10 bg-[#1a1a1a] flex flex-col relative z-30 overflow-hidden shrink-0 pointer-events-auto"
       >
         <div className="flex border-b border-white/10 shrink-0">
           <button
             onClick={() => setActiveTab('objects')}
-            className={`flex-1 py-3 text-[13px] font-black uppercase transition-all relative ${activeTab === 'objects' ? 'text-emerald-500 bg-white/5' : 'text-white/30 hover:text-white/60'}`}
+            className={`flex-1 py-3 text-[12px] font-black uppercase transition-all relative ${activeTab === 'objects' ? 'text-teal-500 bg-white/5' : 'text-white/30 hover:text-white/60'}`}
           >
-            {activeTab === 'objects' && <motion.div layoutId="tab-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500" />}
+            {activeTab === 'objects' && <motion.div layoutId="tab-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-teal-500" />}
             {t('Objects', '오브젝트')}
           </button>
           <button
             onClick={() => setActiveTab('lights')}
-            className={`flex-1 py-3 text-[13px] font-black uppercase transition-all relative ${activeTab === 'lights' ? 'text-emerald-500 bg-white/5' : 'text-white/30 hover:text-white/60'}`}
+            className={`flex-1 py-3 text-[12px] font-black uppercase transition-all relative ${activeTab === 'lights' ? 'text-teal-500 bg-white/5' : 'text-white/30 hover:text-white/60'}`}
           >
-            {activeTab === 'lights' && <motion.div layoutId="tab-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500" />}
+            {activeTab === 'lights' && <motion.div layoutId="tab-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-teal-500" />}
             {t('Lights', '조명')}
           </button>
           <button
             onClick={() => setActiveTab('materials')}
-            className={`flex-1 py-3 text-[13px] font-black uppercase transition-all relative ${activeTab === 'materials' ? 'text-emerald-500 bg-white/5' : 'text-white/30 hover:text-white/60'}`}
+            className={`flex-1 py-3 text-[12px] font-black uppercase transition-all relative ${activeTab === 'materials' ? 'text-teal-500 bg-white/5' : 'text-white/30 hover:text-white/60'}`}
           >
-            {activeTab === 'materials' && <motion.div layoutId="tab-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500" />}
+            {activeTab === 'materials' && <motion.div layoutId="tab-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-teal-500" />}
             {t('Materials', '재질')}
           </button>
           <button
             onClick={() => setActiveTab('settings')}
-            className={`flex-1 py-3 text-[13px] font-black uppercase transition-all relative ${activeTab === 'settings' ? 'text-emerald-500 bg-white/5' : 'text-white/30 hover:text-white/60'}`}
+            className={`flex-1 py-3 text-[12px] font-black uppercase transition-all relative ${activeTab === 'settings' ? 'text-teal-500 bg-white/5' : 'text-white/30 hover:text-white/60'}`}
           >
-            {activeTab === 'settings' && <motion.div layoutId="tab-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500" />}
+            {activeTab === 'settings' && <motion.div layoutId="tab-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-teal-500" />}
             {t('Scene', '설정')}
           </button>
         </div>
@@ -501,7 +503,7 @@ export const UI: React.FC<UIProps> = ({
               <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-300">
                 <section className="space-y-1.5">
                   <div className="flex items-center gap-2.5 mb-1 px-1.5 h-7">
-                    <Box className="w-3.5 h-3.5 text-emerald-500" />
+                    <Box className="w-3.5 h-3.5 text-teal-500" />
                     <h2 className="text-xs font-black uppercase tracking-widest text-white/50">{t('Primitives', '도형')}</h2>
                   </div>
                   <div className="grid grid-cols-3 gap-1">
@@ -518,7 +520,7 @@ export const UI: React.FC<UIProps> = ({
                         }}
                         className="flex flex-col items-center justify-center gap-1.5 p-2 bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg transition-all text-[10px] font-black uppercase tracking-widest text-white/50 hover:text-white group"
                       >
-                        <span className="text-emerald-500 group-hover:scale-110 transition-transform">{btn.icon}</span>
+                        <span className="text-teal-500 group-hover:scale-110 transition-transform">{btn.icon}</span>
                         <span className="opacity-60">{btn.type}</span>
                       </button>
                     ))}
@@ -526,7 +528,7 @@ export const UI: React.FC<UIProps> = ({
                 </section>
                 <section>
                   <div className="flex items-center gap-2.5 mb-1 px-1.5 h-7">
-                    <Library className="w-3.5 h-3.5 text-emerald-500" />
+                    <Library className="w-3.5 h-3.5 text-teal-500" />
                     <h2 className="text-xs font-black uppercase tracking-widest text-white/300">{t('Asset Library', '에셋 라이브러리')}</h2>
                   </div>
                   <AssetLibrary onSelect={(type, url, name) => {
@@ -538,7 +540,7 @@ export const UI: React.FC<UIProps> = ({
                 <section id="scene-objects-section">
                   <div id="scene-objects-layer" className="flex items-center justify-between mb-1 px-1.5 h-7 scroll-mt-4">
                     <div className="flex items-center gap-2.5">
-                      <Layers className="w-3.5 h-3.5 text-emerald-500" />
+                      <Layers className="w-3.5 h-3.5 text-teal-500" />
                       <h2 className="text-xs font-black uppercase tracking-widest text-white/50">{t('Scene Objects', '씬 오브젝트')}</h2>
                     </div>
                     <div className="flex gap-1.5">
@@ -557,7 +559,7 @@ export const UI: React.FC<UIProps> = ({
                           const anyUnlocked = state.items.some(i => !i.locked);
                           onUpdateItems(Object.fromEntries(state.items.map(i => [i.id, { locked: anyUnlocked }])));
                         }}
-                        className={`p-1 rounded-lg transition-all border ${state.items.some(i => !i.locked) ? 'bg-emerald-500 text-black border-emerald-500' : 'bg-white/5 text-white/50 border-white/5 hover:bg-white/10'}`}
+                        className={`p-1 rounded-lg transition-all border ${state.items.some(i => !i.locked) ? 'bg-teal-500 text-black border-teal-500' : 'bg-white/5 text-white/50 border-white/5 hover:bg-white/10'}`}
                         title="Toggle lock for all objects"
                       >
                         {state.items.some(i => !i.locked) ? <Unlock size={12} /> : <Lock size={12} />}
@@ -576,7 +578,7 @@ export const UI: React.FC<UIProps> = ({
                               internalUIActionRef.current = true;
                               const isMulti = e.ctrlKey || e.metaKey;
                               const isShift = e.shiftKey;
-                              
+
                               if (isShift && lastSelectedIndexRef.current !== null) {
                                 const start = Math.min(lastSelectedIndexRef.current, idx);
                                 const end = Math.max(lastSelectedIndexRef.current, idx);
@@ -586,7 +588,7 @@ export const UI: React.FC<UIProps> = ({
                                   if (rn.type === 'item') rangeIds.push(rn.item.id);
                                   else rn.items.forEach(ri => rangeIds.push(ri.id));
                                 });
-                                
+
                                 const nextIds = Array.from(new Set([...state.selectedIds, ...rangeIds]));
                                 onUpdateState({ selectedIds: nextIds });
                               } else {
@@ -594,10 +596,10 @@ export const UI: React.FC<UIProps> = ({
                                 if (!isMulti) lastSelectedIndexRef.current = idx;
                               }
                             }}
-                            className={`px-3 py-2 rounded-xl border transition-all duration-300 relative overflow-hidden flex items-center justify-between cursor-pointer ${state.selectedIds.includes(item.id) ? 'border-emerald-500 bg-emerald-500/[0.04] shadow-[0_5px_15px_rgba(16,185,129,0.05)]' : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'}`}
+                            className={`px-3 py-2 rounded-xl border transition-all duration-300 relative overflow-hidden flex items-center justify-between cursor-pointer ${state.selectedIds.includes(item.id) ? `border-teal-500 bg-teal-500/[0.04] shadow-[0_5px_15px_${accentRgba(0.05)}]` : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'}`}
                           >
                             <div className="flex items-center gap-3 min-w-0">
-                              <div className={`p-1 rounded-lg transition-all ${state.selectedIds.includes(item.id) ? 'bg-emerald-500/10 text-emerald-500' : 'bg-white/5 text-white/30'}`}>
+                              <div className={`p-1 rounded-lg transition-all ${state.selectedIds.includes(item.id) ? 'bg-teal-500/10 text-teal-500' : 'bg-white/5 text-white/30'}`}>
                                 {item.type === 'box' && <Box size={12} />}
                                 {item.type === 'sphere' && <Circle size={12} />}
                                 {item.type === 'plane' && <Layout size={12} />}
@@ -610,7 +612,7 @@ export const UI: React.FC<UIProps> = ({
                                     value={editingNameValue}
                                     autoFocus
                                     onClick={e => e.stopPropagation()}
-                                    className="bg-black/60 border border-emerald-500/50 rounded px-1.5 py-0.5 text-[10px] text-white outline-none"
+                                    className="bg-black/60 border border-teal-500/50 rounded px-1.5 py-0.5 text-[10px] text-white outline-none"
                                     onBlur={() => {
                                       onUpdateItem(item.id, { name: editingNameValue });
                                       setEditingNameId(null);
@@ -646,7 +648,7 @@ export const UI: React.FC<UIProps> = ({
                               </button>
                               <button
                                 onClick={(e) => { e.stopPropagation(); onUpdateItem(item.id, { locked: !item.locked }); }}
-                                className="p-1 rounded-md text-white/300 hover:text-emerald-500 transition-all"
+                                className="p-1 rounded-md text-white/300 hover:text-teal-500 transition-all"
                                 title={item.locked ? "Unlock object" : "Lock object"}
                               >
                                 {!item.locked ? <Unlock size={12} /> : <Lock size={12} />}
@@ -672,7 +674,7 @@ export const UI: React.FC<UIProps> = ({
                         return (
                           <div key={node.groupId} id={'object-panel-' + node.groupId} className="space-y-1">
                             <div
-                              className={`px-3 py-2 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${isGroupSelected ? 'border-emerald-500 bg-emerald-500/[0.04] shadow-[0_5px_15px_rgba(16,185,129,0.05)]' : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'}`}
+                              className={`px-3 py-2 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${isGroupSelected ? `border-teal-500 bg-teal-500/[0.04] shadow-[0_5px_15px_${accentRgba(0.05)}]` : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'}`}
                               onClick={(e) => {
                                 internalUIActionRef.current = true;
                                 const isShift = e.shiftKey;
@@ -696,11 +698,11 @@ export const UI: React.FC<UIProps> = ({
                               <div className="flex items-center gap-2 min-w-0">
                                 <button
                                   onClick={(e) => toggleGroupExpansion(node.groupId, e)}
-                                  className={`p-1 -ml-1.5 rounded bg-transparent ${isGroupSelected ? 'text-emerald-500 hover:text-emerald-400' : 'text-white/30 hover:text-white/80'} transition-colors`}
+                                  className={`p-1 -ml-1.5 rounded bg-transparent ${isGroupSelected ? 'text-teal-500 hover:text-teal-400' : 'text-white/30 hover:text-white/80'} transition-colors`}
                                 >
                                   {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                                 </button>
-                                <span className={`text-white/50 ${isGroupSelected ? 'text-emerald-500' : ''}`}><Folder size={12} /></span>
+                                <span className={`text-white/50 ${isGroupSelected ? 'text-teal-500' : ''}`}><Folder size={12} /></span>
                                 <span className={`text-[10px] font-black uppercase tracking-tight truncate ${isGroupSelected ? 'text-white' : 'text-white/60'}`}>Group</span>
                               </div>
                             </div>
@@ -721,10 +723,10 @@ export const UI: React.FC<UIProps> = ({
                                         internalUIActionRef.current = true;
                                         onSelect(item.id, e.shiftKey || e.ctrlKey || e.metaKey);
                                       }}
-                                      className={`px-3 py-1.5 rounded-lg border transition-all duration-300 relative flex items-center justify-between cursor-pointer ${state.selectedIds.includes(item.id) ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-transparent hover:bg-white/5'}`}
+                                      className={`px-3 py-1.5 rounded-lg border transition-all duration-300 relative flex items-center justify-between cursor-pointer ${state.selectedIds.includes(item.id) ? 'border-teal-500/50 bg-teal-500/5' : 'border-transparent hover:bg-white/5'}`}
                                     >
                                       <div className="flex items-center gap-2 min-w-0">
-                                        <div className={`text-white/30 ${state.selectedIds.includes(item.id) ? 'text-emerald-500' : ''}`}>
+                                        <div className={`text-white/30 ${state.selectedIds.includes(item.id) ? 'text-teal-500' : ''}`}>
                                           {item.type === 'box' && <Square size={10} />}
                                           {item.type === 'sphere' && <div className="w-2 h-2 rounded-full border border-current" />}
                                           {item.type === 'plane' && <Layout size={10} />}
@@ -736,7 +738,7 @@ export const UI: React.FC<UIProps> = ({
                                             value={editingNameValue}
                                             autoFocus
                                             onClick={e => e.stopPropagation()}
-                                            className="bg-black/80 border border-emerald-500/50 rounded px-1.5 py-0.5 text-[10px] text-white outline-none w-full"
+                                            className="bg-black/80 border border-teal-500/50 rounded px-1.5 py-0.5 text-[10px] text-white outline-none w-full"
                                             onBlur={() => {
                                               onUpdateItem(item.id, { name: editingNameValue });
                                               setEditingNameId(null);
@@ -771,7 +773,7 @@ export const UI: React.FC<UIProps> = ({
                                         </button>
                                         <button
                                           onClick={(e) => { e.stopPropagation(); onUpdateItem(item.id, { locked: !item.locked }); }}
-                                          className="p-1 rounded-md text-white/300 hover:text-emerald-500 transition-all"
+                                          className="p-1 rounded-md text-white/300 hover:text-teal-500 transition-all"
                                           title={item.locked ? "Unlock object" : "Lock object"}
                                         >
                                           {!item.locked ? <Unlock size={10} /> : <Lock size={10} />}
@@ -807,10 +809,10 @@ export const UI: React.FC<UIProps> = ({
 
                 {selectedItem && (
                   <section id="selected-object-properties" className="space-y-4 pt-4 border-t border-white/5 animate-in slide-in-from-right duration-400">
-                    <div className="flex items-center justify-between bg-emerald-500/5 p-2 rounded-lg border border-emerald-500/10">
+                    <div className="flex items-center justify-between bg-teal-500/5 p-2 rounded-lg border border-teal-500/10">
                       <div className="flex items-center gap-2">
-                        <div className="w-1 h-1 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981] animate-pulse" />
-                        <h2 className="text-[10px] font-black uppercase tracking-widest text-emerald-500">{t('Properties', '속성')}</h2>
+                        <div className={`w-1 h-1 rounded-full bg-teal-500 shadow-[0_0_10px_${ACCENT_400}] animate-pulse`} />
+                        <h2 className="text-[10px] font-black uppercase tracking-widest text-teal-500">{t('Properties', '속성')}</h2>
                       </div>
                     </div>
 
@@ -821,7 +823,7 @@ export const UI: React.FC<UIProps> = ({
                           type="text"
                           value={selectedItem.name}
                           onChange={(e) => onUpdateItem(selectedItem.id, { name: e.target.value })}
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-[10px] font-bold text-white focus:border-emerald-500/50 outline-none transition-all shadow-inner"
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-[10px] font-bold text-white focus:border-teal-500/50 outline-none transition-all shadow-inner"
                         />
                       </div>
 
@@ -833,7 +835,7 @@ export const UI: React.FC<UIProps> = ({
                         ].map(config => (
                           <div key={config.field} className="space-y-1.5">
                             <div className="flex items-center gap-1.5 pr-2">
-                              <div className="text-emerald-500/40">{React.cloneElement(config.icon as any, { size: 10 })}</div>
+                              <div className="text-teal-500/40">{React.cloneElement(config.icon as any, { size: 10 })}</div>
                               <span className="text-[7.5px] text-white/30 font-black uppercase tracking-widest">{config.label}</span>
                             </div>
                             <div className="grid grid-cols-3 gap-1">
@@ -853,9 +855,9 @@ export const UI: React.FC<UIProps> = ({
                                         updateField(selectedItem.id, config.field as any, i, val);
                                       }
                                     }}
-                                    className="w-full bg-black/40 border border-white/5 group-hover:border-emerald-500/30 rounded px-1.5 py-1 text-center text-[10px] font-mono font-bold text-white outline-none focus:border-emerald-500/50 transition-all shadow-inner"
+                                    className="w-full bg-black/40 border border-white/5 group-hover:border-teal-500/30 rounded px-1.5 py-1 text-center text-[10px] font-mono font-bold text-white outline-none focus:border-teal-500/50 transition-all shadow-inner"
                                   />
-                                  <span className="absolute top-0.5 right-1.5 text-[10px] text-white/[0.30] font-black group-hover:text-emerald-500/20">{l}</span>
+                                  <span className="absolute top-0.5 right-1.5 text-[10px] text-white/[0.30] font-black group-hover:text-teal-500/20">{l}</span>
                                 </div>
                               ))}
                             </div>
@@ -864,7 +866,7 @@ export const UI: React.FC<UIProps> = ({
 
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
-                            <Box className="w-3 h-3 text-emerald-500/40" />
+                            <Box className="w-3 h-3 text-teal-500/40" />
                             <span className="text-[10px] text-white/30 font-black uppercase tracking-widest">{t('Dimensions', '치수')}</span>
                           </div>
                           <div className="grid grid-cols-3 gap-1.5">
@@ -879,9 +881,9 @@ export const UI: React.FC<UIProps> = ({
                                     dims[i] = isNaN(val) ? 0 : val;
                                     onUpdateItem(selectedItem.id, { dimensions: dims });
                                   }}
-                                  className="w-full bg-black/60 border border-white/5 group-hover:border-emerald-500/30 rounded-lg px-2 py-2 text-center text-[10px] font-mono font-bold text-white outline-none focus:border-emerald-500/50 transition-all shadow-inner"
+                                  className="w-full bg-black/60 border border-white/5 group-hover:border-teal-500/30 rounded-lg px-2 py-2 text-center text-[10px] font-mono font-bold text-white outline-none focus:border-teal-500/50 transition-all shadow-inner"
                                 />
-                                <span className="absolute top-0.5 right-1.5 text-[10px] text-white/[0.30] font-black group-hover:text-emerald-500/20">{l}</span>
+                                <span className="absolute top-0.5 right-1.5 text-[10px] text-white/[0.30] font-black group-hover:text-teal-500/20">{l}</span>
                               </div>
                             ))}
                           </div>
@@ -891,24 +893,24 @@ export const UI: React.FC<UIProps> = ({
                           <div className="grid grid-cols-3 gap-2">
                             <button
                               onClick={() => onUpdateItem(selectedItem.id, { doubleSide: !selectedItem.doubleSide })}
-                              className={`flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all ${!selectedItem.doubleSide ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
+                              className={`flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all ${!selectedItem.doubleSide ? 'bg-teal-500/10 border-teal-500/30' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
                             >
                               <span className="text-[10px] font-black uppercase text-white/50">Culling</span>
-                              <span className={`text-[10px] font-black ${!selectedItem.doubleSide ? 'text-emerald-500' : 'text-white/30'}`}>{!selectedItem.doubleSide ? 'ACTIVE' : 'OFF'}</span>
+                              <span className={`text-[10px] font-black ${!selectedItem.doubleSide ? 'text-teal-500' : 'text-white/30'}`}>{!selectedItem.doubleSide ? 'ACTIVE' : 'OFF'}</span>
                             </button>
                             <button
                               onClick={() => onUpdateItem(selectedItem.id, { flipNormals: !selectedItem.flipNormals })}
-                              className={`flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all ${selectedItem.flipNormals ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
+                              className={`flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all ${selectedItem.flipNormals ? 'bg-teal-500/10 border-teal-500/30' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
                             >
                               <span className="text-[10px] font-black uppercase text-white/50">Inversion</span>
-                              <span className={`text-[10px] font-black ${selectedItem.flipNormals ? 'text-emerald-500' : 'text-white/30'}`}>{selectedItem.flipNormals ? 'FLIPPED' : 'NORMAL'}</span>
+                              <span className={`text-[10px] font-black ${selectedItem.flipNormals ? 'text-teal-500' : 'text-white/30'}`}>{selectedItem.flipNormals ? 'FLIPPED' : 'NORMAL'}</span>
                             </button>
                             <button
                               onClick={() => onUpdateItem(selectedItem.id, { castShadow: selectedItem.castShadow === false ? true : false })}
-                              className={`flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all ${selectedItem.castShadow !== false ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
+                              className={`flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all ${selectedItem.castShadow !== false ? 'bg-teal-500/10 border-teal-500/30' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
                             >
                               <span className="text-[10px] font-black uppercase text-white/50">Shadows</span>
-                              <span className={`text-[10px] font-black ${selectedItem.castShadow !== false ? 'text-emerald-500' : 'text-white/30'}`}>{selectedItem.castShadow !== false ? 'ON' : 'OFF'}</span>
+                              <span className={`text-[10px] font-black ${selectedItem.castShadow !== false ? 'text-teal-500' : 'text-white/30'}`}>{selectedItem.castShadow !== false ? 'ON' : 'OFF'}</span>
                             </button>
                           </div>
 
@@ -917,22 +919,22 @@ export const UI: React.FC<UIProps> = ({
                               <div className="space-y-2">
                                 <div className="flex justify-between text-[10px] text-white/50 font-black uppercase tracking-widest">
                                   <span>Glass Opacity</span>
-                                  <span className="text-emerald-500">{(selectedItem.glassOpacity ?? 0.3).toFixed(2)}</span>
+                                  <span className="text-teal-500">{(selectedItem.glassOpacity ?? 0.3).toFixed(2)}</span>
                                 </div>
                                 <input
                                   type="range" min="0" max="1" step="0.05"
                                   value={selectedItem.glassOpacity ?? 0.3}
                                   onChange={(e) => onUpdateItem(selectedItem.id, { glassOpacity: parseFloat(e.target.value) })}
-                                  className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                                  className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-teal-500"
                                 />
                               </div>
 
                               <div className="flex items-center justify-between p-2.5 bg-black/40 rounded-xl border border-white/5 shadow-inner">
                                 <div className="flex flex-col">
                                   <span className="text-[10px] font-black text-white/50 uppercase tracking-widest leading-none mb-1">Glass Base Color</span>
-                                  <span className="text-[10px] font-mono text-emerald-500 uppercase tracking-widest">{selectedItem.glassColor || 'Default'}</span>
+                                  <span className="text-[10px] font-mono text-teal-500 uppercase tracking-widest">{selectedItem.glassColor || 'Default'}</span>
                                 </div>
-                                <div className="relative w-7 h-7 rounded-lg overflow-hidden border border-white/20 hover:border-emerald-500 transition-all shadow-lg">
+                                <div className="relative w-7 h-7 rounded-lg overflow-hidden border border-white/20 hover:border-teal-500 transition-all shadow-lg">
                                   <input
                                     type="color"
                                     value={selectedItem.glassColor || '#ffffff'}
@@ -946,26 +948,26 @@ export const UI: React.FC<UIProps> = ({
                               <div className="space-y-2">
                                 <div className="flex justify-between text-[10px] text-white/50 font-black uppercase tracking-widest">
                                   <span>Glass Metalness</span>
-                                  <span className="text-emerald-500">{(selectedItem.glassMetalness ?? 0.1).toFixed(2)}</span>
+                                  <span className="text-teal-500">{(selectedItem.glassMetalness ?? 0.1).toFixed(2)}</span>
                                 </div>
                                 <input
                                   type="range" min="0" max="1" step="0.05"
                                   value={selectedItem.glassMetalness ?? 0.1}
                                   onChange={(e) => onUpdateItem(selectedItem.id, { glassMetalness: parseFloat(e.target.value) })}
-                                  className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                                  className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-teal-500"
                                 />
                               </div>
 
                               <div className="space-y-2">
                                 <div className="flex justify-between text-[10px] text-white/50 font-black uppercase tracking-widest">
                                   <span>Glass Roughness</span>
-                                  <span className="text-emerald-500">{(selectedItem.glassRoughness ?? 0.1).toFixed(2)}</span>
+                                  <span className="text-teal-500">{(selectedItem.glassRoughness ?? 0.1).toFixed(2)}</span>
                                 </div>
                                 <input
                                   type="range" min="0" max="1" step="0.05"
                                   value={selectedItem.glassRoughness ?? 0.1}
                                   onChange={(e) => onUpdateItem(selectedItem.id, { glassRoughness: parseFloat(e.target.value) })}
-                                  className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                                  className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-teal-500"
                                 />
                               </div>
                             </div>
@@ -977,9 +979,9 @@ export const UI: React.FC<UIProps> = ({
                             <div className={`flex items-center justify-between p-3 bg-black/40 rounded-xl border border-white/5 shadow-inner transition-all ${selectedItem.textureId && selectedItem.textureId !== 'none' ? 'opacity-30 pointer-events-none' : ''}`}>
                               <div className="flex flex-col">
                                 <span className="text-[10px] font-black text-white/50 uppercase tracking-widest leading-none mb-1">Base Color Tint</span>
-                                <span className="text-[10px] font-mono text-emerald-500 uppercase tracking-widest">{selectedItem.color || 'Default'}</span>
+                                <span className="text-[10px] font-mono text-teal-500 uppercase tracking-widest">{selectedItem.color || 'Default'}</span>
                               </div>
-                              <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-white/20 hover:border-emerald-500 transition-all shadow-lg">
+                              <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-white/20 hover:border-teal-500 transition-all shadow-lg">
                                 <input
                                   type="color"
                                   value={selectedItem.color || '#94a3b8'}
@@ -1018,9 +1020,9 @@ export const UI: React.FC<UIProps> = ({
                                   <span className="text-[10px] font-black text-white/50 uppercase tracking-widest">Texture Tiling</span>
                                   <button
                                     onClick={() => onUpdateItem(selectedItem.id, { textureTiling: !selectedItem.textureTiling })}
-                                    className={`w-9 h-4.5 rounded-full transition-all relative p-0.5 border ${selectedItem.textureTiling ? 'bg-emerald-500/20 border-emerald-500/30' : 'bg-black/40 border-white/10'}`}
+                                    className={`w-9 h-4.5 rounded-full transition-all relative p-0.5 border ${selectedItem.textureTiling ? 'bg-teal-500/20 border-teal-500/30' : 'bg-black/40 border-white/10'}`}
                                   >
-                                    <div className={`w-3 h-3 rounded-full transition-all ${selectedItem.textureTiling ? 'translate-x-[18px] bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'translate-x-0 bg-white/20'}`} />
+                                    <div className={`w-3 h-3 rounded-full transition-all ${selectedItem.textureTiling ? `translate-x-[18px] bg-teal-500 shadow-[0_0_10px_${accentRgba(0.5)}]` : 'translate-x-0 bg-white/20'}`} />
                                   </button>
                                 </div>
 
@@ -1053,7 +1055,7 @@ export const UI: React.FC<UIProps> = ({
                                                 dens[idx] = parseFloat(e.target.value);
                                                 onUpdateItem(selectedItem.id, { textureDensity: dens });
                                               }}
-                                              className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                                              className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-teal-500"
                                             />
                                           </div>
                                         ))}
@@ -1064,9 +1066,9 @@ export const UI: React.FC<UIProps> = ({
                                     <div className="space-y-2">
                                       <div className="flex justify-between text-[10px] font-black text-white/30 uppercase tracking-widest">
                                         <span>{t('Tiling Offset', '개체 타일 오프셋')}</span>
-                                        <button 
+                                        <button
                                           onClick={() => onUpdateState({ gizmoMode: state.gizmoMode === 'texture' ? 'translate' : 'texture' })}
-                                          className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase transition-all ${state.gizmoMode === 'texture' ? 'bg-emerald-500 text-black' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}
+                                          className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase transition-all ${state.gizmoMode === 'texture' ? 'bg-teal-500 text-black' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}
                                         >
                                           {state.gizmoMode === 'texture' ? 'Gizmo Active' : 'Use 3D Gizmo'}
                                         </button>
@@ -1094,7 +1096,7 @@ export const UI: React.FC<UIProps> = ({
                                                 off[idx] = parseFloat(e.target.value);
                                                 onUpdateItem(selectedItem.id, { textureOffset: off });
                                               }}
-                                              className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                                              className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-teal-500"
                                             />
                                           </div>
                                         ))}
@@ -1124,7 +1126,7 @@ export const UI: React.FC<UIProps> = ({
                                     type="range" min="0" max="1" step="0.001"
                                     value={dispVal}
                                     onChange={(e) => onUpdateItem(selectedItem.id, { displacementScale: parseFloat(e.target.value) })}
-                                    className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                                    className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-teal-500"
                                   />
                                 </div>
                               );
@@ -1134,7 +1136,7 @@ export const UI: React.FC<UIProps> = ({
                           <div className="pt-3 space-y-3">
                             <div className="flex items-center justify-between px-1">
                               <div className="flex items-center gap-2">
-                                <Scissors className="w-3 h-3 text-emerald-500/40" />
+                                <Scissors className="w-3 h-3 text-teal-500/40" />
                                 <span className="text-[10px] text-white/30 font-black uppercase tracking-widest">{t('Subtraction System', '객체 결합 및 제거')}</span>
                               </div>
                               <button
@@ -1143,7 +1145,7 @@ export const UI: React.FC<UIProps> = ({
                                   onUpdateItem(selectedItem.id, { subtractions: [...(selectedItem.subtractions || []), newSub] }, true);
                                   setSelectedSubId(newSub.id);
                                 }}
-                                className="px-2 py-0.5 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-black rounded-lg text-[10px] font-black uppercase tracking-widest border border-emerald-500/20 transition-all"
+                                className="px-2 py-0.5 bg-teal-500/10 hover:bg-teal-500 text-teal-500 hover:text-black rounded-lg text-[10px] font-black uppercase tracking-widest border border-teal-500/20 transition-all"
                               >
                                 {t('Add Hole', '구멍 추가')}
                               </button>
@@ -1153,10 +1155,10 @@ export const UI: React.FC<UIProps> = ({
                                 <div key={sub.id} className="space-y-2">
                                   <div
                                     onClick={() => setSelectedSubId(selectedSubId === sub.id ? null : sub.id)}
-                                    className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${selectedSubId === sub.id ? 'bg-emerald-500/10 border-emerald-500/50' : 'bg-black/40 border-white/5 hover:border-white/10'}`}
+                                    className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${selectedSubId === sub.id ? 'bg-teal-500/10 border-teal-500/50' : 'bg-black/40 border-white/5 hover:border-white/10'}`}
                                   >
                                     <div className="flex items-center gap-3">
-                                      <div className={`w-2 h-2 rounded-full ${selectedSubId === sub.id ? 'bg-emerald-500 shadow-[0_0_8px_#10b981] animate-pulse' : 'bg-white/10'}`} />
+                                      <div className={`w-2 h-2 rounded-full ${selectedSubId === sub.id ? 'bg-teal-500 shadow-[0_0_8px_#2dd4bf] animate-pulse' : 'bg-white/10'}`} />
                                       <div className="flex flex-col">
                                         <span className="text-[10px] font-black text-white/80 uppercase tracking-widest">{sub.type} Boolean</span>
                                         <span className="text-[10px] text-white/30 font-mono tracking-tighter uppercase">{sub.id.slice(0, 8)}</span>
@@ -1174,7 +1176,7 @@ export const UI: React.FC<UIProps> = ({
                                     </button>
                                   </div>
                                   {selectedSubId === sub.id && (
-                                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="ml-3 pl-3 border-l-2 border-emerald-500/20 space-y-3">
+                                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="ml-3 pl-3 border-l-2 border-teal-500/20 space-y-3">
                                       <div className="space-y-2">
                                         <span className="text-[10px] text-white/30 font-black uppercase tracking-widest">Position Matrix</span>
                                         <div className="grid grid-cols-3 gap-1.5">
@@ -1191,7 +1193,7 @@ export const UI: React.FC<UIProps> = ({
                                                 });
                                                 onUpdateItem(selectedItem.id, { subtractions: newSubs }, true);
                                               }}
-                                              className="bg-black/60 border border-white/5 rounded-lg px-1 py-1.5 text-center text-[10px] font-mono font-bold text-white outline-none focus:border-emerald-500/30 shadow-inner"
+                                              className="bg-black/60 border border-white/5 rounded-lg px-1 py-1.5 text-center text-[10px] font-mono font-bold text-white outline-none focus:border-teal-500/30 shadow-inner"
                                             />
                                           ))}
                                         </div>
@@ -1213,7 +1215,7 @@ export const UI: React.FC<UIProps> = ({
                                                 });
                                                 onUpdateItem(selectedItem.id, { subtractions: newSubs }, true);
                                               }}
-                                              className="bg-black/60 border border-white/5 rounded-lg px-1 py-1.5 text-center text-[10px] font-mono font-bold text-white outline-none focus:border-emerald-500/30 shadow-inner"
+                                              className="bg-black/60 border border-white/5 rounded-lg px-1 py-1.5 text-center text-[10px] font-mono font-bold text-white outline-none focus:border-teal-500/30 shadow-inner"
                                             />
                                           ))}
                                         </div>
@@ -1236,14 +1238,14 @@ export const UI: React.FC<UIProps> = ({
               <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-300">
                 <section>
                   <div className="flex items-center gap-2.5 mb-1 px-1.5 h-7">
-                    <Lightbulb className="w-3.5 h-3.5 text-emerald-500" />
+                    <Lightbulb className="w-3.5 h-3.5 text-teal-500" />
                     <h2 className="text-xs font-black uppercase tracking-widest text-white/50">{t('Lighting', '조명 설정')}</h2>
                   </div>
 
                   <div className="grid grid-cols-4 gap-1.5">
                     {[
                       { type: 'point', icon: <Lightbulb size={14} />, color: 'amber' },
-                      { type: 'spot', icon: <Zap size={14} />, color: 'emerald' },
+                      { type: 'spot', icon: <Zap size={14} />, color: 'teal' },
                       { type: 'directional', icon: <Sun size={14} />, color: 'blue' },
                       { type: 'ambient', icon: <Circle size={14} />, color: 'indigo' }
                     ].map(btn => (
@@ -1262,7 +1264,7 @@ export const UI: React.FC<UIProps> = ({
                 <section id="lights-section">
                   <div id="scene-lights-layer" className="flex items-center justify-between mb-1 px-1.5 h-7 scroll-mt-4">
                     <div className="flex items-center gap-2.5">
-                      <Layers className="w-3.5 h-3.5 text-emerald-500" />
+                      <Layers className="w-3.5 h-3.5 text-teal-500" />
                       <h2 className="text-xs font-black uppercase tracking-widest text-white/50">{t('Scene Lights', '씬 라이트')}</h2>
                     </div>
                     <div className="flex gap-1.5">
@@ -1275,7 +1277,7 @@ export const UI: React.FC<UIProps> = ({
                       </button>
                       <button
                         onClick={() => setShowGizmos(!showGizmos)}
-                        className={`p-1 rounded-lg transition-all border ${showGizmos ? 'bg-emerald-500 text-black border-emerald-500' : 'bg-white/5 text-white/50 border-white/5 hover:bg-white/10'}`}
+                        className={`p-1 rounded-lg transition-all border ${showGizmos ? 'bg-teal-500 text-black border-teal-500' : 'bg-white/5 text-white/50 border-white/5 hover:bg-white/10'}`}
                         title="Toggle global gizmos"
                       >
                         {showGizmos ? <Unlock size={12} /> : <Lock size={12} />}
@@ -1303,7 +1305,7 @@ export const UI: React.FC<UIProps> = ({
                             if (!isMulti) lastSelectedIndexRef.current = index;
                           }
                         }}
-                        className={`px-3 py-2 rounded-xl border transition-all duration-300 relative overflow-hidden flex items-center justify-between cursor-pointer ${state.selectedIds.includes(light.id) ? 'border-emerald-500 bg-emerald-500/[0.04] shadow-[0_5px_15px_rgba(16,185,129,0.05)]' : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'}`}
+                        className={`px-3 py-2 rounded-xl border transition-all duration-300 relative overflow-hidden flex items-center justify-between cursor-pointer ${state.selectedIds.includes(light.id) ? 'border-teal-500 bg-teal-500/[0.04] shadow-[0_5px_15px_rgba(45,212,191,0.05)]' : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'}`}
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <div className={`p-1 rounded-lg transition-all ${light.enabled ? 'bg-amber-500/10 text-amber-500' : 'bg-white/5 text-white/30'}`}>
@@ -1319,7 +1321,7 @@ export const UI: React.FC<UIProps> = ({
                                 value={editingNameValue}
                                 autoFocus
                                 onClick={e => e.stopPropagation()}
-                                className="bg-black/60 border border-emerald-500/50 rounded px-1.5 py-0.5 text-[10px] text-white outline-none"
+                                className="bg-black/60 border border-teal-500/50 rounded px-1.5 py-0.5 text-[10px] text-white outline-none"
                                 onBlur={() => {
                                   onUpdateLight(light.id, { name: editingNameValue });
                                   setEditingNameId(null);
@@ -1374,10 +1376,10 @@ export const UI: React.FC<UIProps> = ({
 
                   return (
                     <section id="selected-light-properties" className="space-y-6 pt-6 border-t border-white/5 animate-in slide-in-from-right duration-400">
-                      <div className="flex items-center justify-between bg-emerald-500/5 p-3 rounded-xl border border-emerald-500/10">
+                      <div className="flex items-center justify-between bg-teal-500/5 p-3 rounded-xl border border-teal-500/10">
                         <div className="flex items-center gap-3">
-                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981] animate-pulse" />
-                          <h2 className="text-[10px] font-black uppercase tracking-widest text-emerald-500">{t('Properties', '속성')}</h2>
+                          <div className="w-1.5 h-1.5 rounded-full bg-teal-500 shadow-[0_0_10px_#2dd4bf] animate-pulse" />
+                          <h2 className="text-[10px] font-black uppercase tracking-widest text-teal-500">{t('Properties', '속성')}</h2>
                         </div>
                         <span className="text-[10px] font-mono text-white/30 uppercase tracking-widest">{selectedLight.type} module</span>
                       </div>
@@ -1398,9 +1400,9 @@ export const UI: React.FC<UIProps> = ({
                                       pos[i] = unit === 'm' ? val : val / 100;
                                       onUpdateLight(selectedLight.id, { position: pos });
                                     }}
-                                    className="w-full bg-black/60 border border-white/5 rounded-xl px-2 py-3 text-[11px] font-mono font-bold text-white focus:border-emerald-500/50 outline-none transition-all shadow-inner"
+                                    className="w-full bg-black/60 border border-white/5 rounded-xl px-2 py-3 text-[11px] font-mono font-bold text-white focus:border-teal-500/50 outline-none transition-all shadow-inner"
                                   />
-                                  <span className="absolute top-1 right-2 text-[10px] text-white/[0.30] font-black group-hover:text-emerald-500/20">{['X', 'Y', 'Z'][i]}</span>
+                                  <span className="absolute top-1 right-2 text-[10px] text-white/[0.30] font-black group-hover:text-teal-500/20">{['X', 'Y', 'Z'][i]}</span>
                                 </div>
                               ))}
                             </div>
@@ -1411,13 +1413,13 @@ export const UI: React.FC<UIProps> = ({
                           <div className="space-y-2">
                             <div className="flex justify-between text-[10px] font-black text-white/30 uppercase tracking-[0.15em]">
                               <span>{t('Flux Intensity', '광도 강도')}</span>
-                              <span className="text-emerald-500">{selectedLight.intensity.toFixed(2)}</span>
+                              <span className="text-teal-500">{selectedLight.intensity.toFixed(2)}</span>
                             </div>
                             <input
                               type="range" min="0" max={selectedLight.type === 'ambient' ? 2 : 10} step="0.01"
                               value={selectedLight.intensity}
                               onChange={(e) => onUpdateLight(selectedLight.id, { intensity: parseFloat(e.target.value) })}
-                              className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                              className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-teal-500"
                             />
                           </div>
 
@@ -1425,13 +1427,13 @@ export const UI: React.FC<UIProps> = ({
                             <div className="space-y-2">
                               <div className="flex justify-between text-[10px] font-black text-white/30 uppercase tracking-[0.15em]">
                                 <span>Beam Distance</span>
-                                <span className="text-emerald-500">{selectedLight.distance?.toFixed(2) || '0.00'}</span>
+                                <span className="text-teal-500">{selectedLight.distance?.toFixed(2) || '0.00'}</span>
                               </div>
                               <input
                                 type="range" min="0" max="100" step="0.1"
                                 value={selectedLight.distance || 0}
                                 onChange={(e) => onUpdateLight(selectedLight.id, { distance: parseFloat(e.target.value) })}
-                                className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                                className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-teal-500"
                               />
                             </div>
                           )}
@@ -1441,25 +1443,25 @@ export const UI: React.FC<UIProps> = ({
                               <div className="space-y-2">
                                 <div className="flex justify-between text-[10px] font-black text-white/30 uppercase">
                                   <span>{t('Aperture Angle', '조사 각도')}</span>
-                                  <span className="text-emerald-500">{((selectedLight.angle || 0) * (180 / Math.PI)).toFixed(1)}°</span>
+                                  <span className="text-teal-500">{((selectedLight.angle || 0) * (180 / Math.PI)).toFixed(1)}°</span>
                                 </div>
                                 <input
                                   type="range" min="0.05" max="1.5" step="0.01"
                                   value={selectedLight.angle || Math.PI / 3}
                                   onChange={(e) => onUpdateLight(selectedLight.id, { angle: parseFloat(e.target.value) })}
-                                  className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                                  className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-teal-500"
                                 />
                               </div>
                               <div className="space-y-2">
                                 <div className="flex justify-between text-[10px] font-black text-white/30 uppercase">
                                   <span>{t('Penumbra (Softness)', '반영 (부드러움)')}</span>
-                                  <span className="text-emerald-500">{(selectedLight.penumbra || 0).toFixed(2)}</span>
+                                  <span className="text-teal-500">{(selectedLight.penumbra || 0).toFixed(2)}</span>
                                 </div>
                                 <input
                                   type="range" min="0" max="1" step="0.01"
                                   value={selectedLight.penumbra || 0}
                                   onChange={(e) => onUpdateLight(selectedLight.id, { penumbra: parseFloat(e.target.value) })}
-                                  className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                                  className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-teal-500"
                                 />
                               </div>
                             </>
@@ -1469,13 +1471,13 @@ export const UI: React.FC<UIProps> = ({
                             <div className="space-y-2">
                               <div className="flex justify-between text-[10px] font-black text-white/30 uppercase">
                                 <span>{t('Beam Decay', '광량 감쇄')}</span>
-                                <span className="text-emerald-500">{(selectedLight.decay || 1).toFixed(2)}</span>
+                                <span className="text-teal-500">{(selectedLight.decay || 1).toFixed(2)}</span>
                               </div>
                               <input
                                 type="range" min="0" max="10" step="0.1"
                                 value={selectedLight.decay || 2}
                                 onChange={(e) => onUpdateLight(selectedLight.id, { decay: parseFloat(e.target.value) })}
-                                className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                                className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-teal-500"
                               />
                             </div>
                           )}
@@ -1488,9 +1490,9 @@ export const UI: React.FC<UIProps> = ({
                                 </div>
                                 <button
                                   onClick={() => onUpdateLight(selectedLight.id, { castShadow: selectedLight.castShadow === false ? true : false })}
-                                  className={`w-9 h-4.5 rounded-full transition-all relative p-0.5 border ${selectedLight.castShadow !== false ? 'bg-emerald-500/20 border-emerald-500/30' : 'bg-black/40 border-white/10'}`}
+                                  className={`w-9 h-4.5 rounded-full transition-all relative p-0.5 border ${selectedLight.castShadow !== false ? 'bg-teal-500/20 border-teal-500/30' : 'bg-black/40 border-white/10'}`}
                                 >
-                                  <div className={`w-3 h-3 rounded-full transition-all ${selectedLight.castShadow !== false ? 'translate-x-[18px] bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'translate-x-0 bg-white/20'}`} />
+                                  <div className={`w-3 h-3 rounded-full transition-all ${selectedLight.castShadow !== false ? 'translate-x-[18px] bg-teal-500 shadow-[0_0_10px_rgba(45,212,191,0.5)]' : 'translate-x-0 bg-white/20'}`} />
                                 </button>
                               </div>
 
@@ -1498,13 +1500,13 @@ export const UI: React.FC<UIProps> = ({
                                 <div className="pt-3 mt-1 border-t border-white/10 space-y-2">
                                   <div className="flex justify-between text-[10px] font-black text-white/30 uppercase">
                                     <span>{t('Shadow Softness', '그림자 부드러움')}</span>
-                                    <span className="text-emerald-500">{Number(selectedLight.shadowRadius ?? 2).toFixed(1)}</span>
+                                    <span className="text-teal-500">{Number(selectedLight.shadowRadius ?? 2).toFixed(1)}</span>
                                   </div>
                                   <input
                                     type="range" min="0.5" max="15" step="0.5"
                                     value={selectedLight.shadowRadius ?? 2}
                                     onChange={(e) => onUpdateLight(selectedLight.id, { shadowRadius: parseFloat(e.target.value) })}
-                                    className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                                    className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-teal-500"
                                   />
                                 </div>
                               )}
@@ -1514,9 +1516,9 @@ export const UI: React.FC<UIProps> = ({
                           <div className="flex items-center justify-between p-4 bg-black/40 rounded-2xl border border-white/5 shadow-inner mt-2">
                             <div className="flex flex-col">
                               <span className="text-[10px] font-black text-white/50 uppercase leading-none mb-1">{t('Chromaticity Vector', '색도 벡터')}</span>
-                              <span className="text-[10px] font-mono text-emerald-500 uppercase tracking-widest">{selectedLight.color}</span>
+                              <span className="text-[10px] font-mono text-teal-500 uppercase tracking-widest">{selectedLight.color}</span>
                             </div>
-                            <div className="relative w-10 h-10 rounded-xl overflow-hidden border border-white/20 hover:border-emerald-500 transition-all shadow-lg">
+                            <div className="relative w-10 h-10 rounded-xl overflow-hidden border border-white/20 hover:border-teal-500 transition-all shadow-lg">
                               <input
                                 type="color"
                                 value={selectedLight.color}
@@ -1546,7 +1548,7 @@ export const UI: React.FC<UIProps> = ({
               <div className="space-y-8 animate-in fade-in slide-in-from-right-2 duration-300 pb-12">
                 {/* 1. Materials Library Section */}
                 <section>
-                  <MaterialsLibrary 
+                  <MaterialsLibrary
                     language={state.language || 'ko'}
                     onAddTexture={(tex) => {
                       onUpdateState({ customTextures: [...(state.customTextures || []), tex] });
@@ -1558,16 +1560,16 @@ export const UI: React.FC<UIProps> = ({
                 <section className="pt-6 border-t border-white/5">
                   <div className="flex items-center justify-between mb-4 px-1.5 h-7">
                     <div className="flex items-center gap-2.5">
-                      <Layers className="w-3.5 h-3.5 text-emerald-500" />
+                      <Layers className="w-3.5 h-3.5 text-teal-500" />
                       <h2 className="text-xs font-black uppercase text-white/50">{t('Custom Materials', '커스텀 재질')}</h2>
                     </div>
-                    <button 
+                    <button
                       onClick={() => {
                         const newId = uuidv4();
                         const newTex: TextureConfig = { id: newId, name: 'New Material', color: '#ffffff', opacity: 1, metalness: 0.1, roughness: 0.7, displacementScale: 0, isCustom: true };
                         onUpdateState({ customTextures: [...(state.customTextures || []), newTex] });
-                      }} 
-                      className="p-1.5 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-black rounded-lg transition-all"
+                      }}
+                      className="p-1.5 bg-teal-500/10 hover:bg-teal-500 text-teal-500 hover:text-black rounded-lg transition-all"
                       title={t('Add New Material', '새 재질 추가')}
                     >
                       <Plus size={12} />
@@ -1575,14 +1577,14 @@ export const UI: React.FC<UIProps> = ({
                   </div>
 
                   {/* Material Drop Zone */}
-                  <div 
+                  <div
                     onDragEnter={(e) => { e.preventDefault(); setIsDraggingMaterials(true); }}
                     onDragOver={(e) => { e.preventDefault(); setIsDraggingMaterials(true); }}
                     onDragLeave={(e) => { e.preventDefault(); setIsDraggingMaterials(false); }}
                     onDrop={async (e) => {
                       e.preventDefault();
                       setIsDraggingMaterials(false);
-                      
+
                       const rawFiles = Array.from(e.dataTransfer.files);
                       const supportedExtensions = ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif'];
                       const validFiles: File[] = [];
@@ -1614,7 +1616,7 @@ export const UI: React.FC<UIProps> = ({
                         const mapType = identifyTextureType(file.name);
                         let baseName = file.name.replace(/\.[^/.]+$/, "");
                         const suffixes = ['Color', 'Normal', 'Roughness', 'Metalness', 'Displacement', 'AmbientOcclusion', 'AO', 'Emission', 'Emissive', 'NormalGL', 'NormalDX', 'Disp', 'NRM', 'Height', 'Opacity', 'Alpha', 'Diffuse', 'Albedo', 'BaseColor', '1K-JPG', '1K', '2K', '4K', 'JPG', 'PNG', 'WEBP'];
-                        
+
                         let changed = true;
                         while (changed) {
                           changed = false;
@@ -1628,7 +1630,7 @@ export const UI: React.FC<UIProps> = ({
                         }
 
                         if (!groups[baseName]) {
-                          groups[baseName] = { 
+                          groups[baseName] = {
                             id: uuidv4(),
                             name: baseName.replace(/[_-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
                             color: '#ffffff',
@@ -1652,18 +1654,17 @@ export const UI: React.FC<UIProps> = ({
                         onUpdateState({ customTextures: [...(state.customTextures || []), ...newMats as any] });
                       }
                     }}
-                    className={`mb-4 mx-1.5 py-6 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 transition-all group cursor-pointer ${
-                      isDraggingMaterials 
-                        ? 'border-emerald-500 bg-emerald-500/10 scale-[1.02]' 
-                        : 'border-white/5 bg-white/[0.02] hover:border-emerald-500/50'
-                    }`}
+                    className={`mb-4 mx-1.5 py-6 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 transition-all group cursor-pointer ${isDraggingMaterials
+                      ? 'border-teal-500 bg-teal-500/10 scale-[1.02]'
+                      : 'border-white/5 bg-white/[0.02] hover:border-teal-500/50'
+                      }`}
                   >
-                    <div className={`p-3 rounded-full transition-all ${isDraggingMaterials ? 'bg-emerald-500/20 text-emerald-500' : 'bg-white/5 group-hover:bg-emerald-500/20 group-hover:text-emerald-500'}`}>
-                      <Library size={20} className={isDraggingMaterials ? 'text-emerald-500' : 'text-white/20 group-hover:text-emerald-500'} />
+                    <div className={`p-3 rounded-full transition-all ${isDraggingMaterials ? 'bg-teal-500/20 text-teal-500' : 'bg-white/5 group-hover:bg-teal-500/20 group-hover:text-teal-500'}`}>
+                      <Library size={20} className={isDraggingMaterials ? 'text-teal-500' : 'text-white/20 group-hover:text-teal-500'} />
                     </div>
                     <div className="text-center">
                       <p className={`text-[10px] font-black uppercase transition-colors ${isDraggingMaterials ? 'text-white' : 'text-white/40 group-hover:text-white'}`}>{t('Drop Material Maps', '재질 맵 이미지를 드롭하세요')}</p>
-                      <p className={`text-[8px] font-bold uppercase tracking-tighter transition-colors ${isDraggingMaterials ? 'text-emerald-500/60' : 'text-white/10'}`}>{t('Auto-groups by filename (albedo, normal, etc)', '파일명으로 자동 분류 (albedo, normal 등)')}</p>
+                      <p className={`text-[8px] font-bold uppercase tracking-tighter transition-colors ${isDraggingMaterials ? 'text-teal-500/60' : 'text-white/10'}`}>{t('Auto-groups by filename (albedo, normal, etc)', '파일명으로 자동 분류 (albedo, normal 등)')}</p>
                     </div>
                   </div>
 
@@ -1694,7 +1695,7 @@ export const UI: React.FC<UIProps> = ({
                 {/* 3. Environment Section */}
                 <section>
                   <div className="flex items-center gap-2.5 mb-1 px-1.5 h-7">
-                    <Sun className="w-3.5 h-3.5 text-emerald-500" />
+                    <Sun className="w-3.5 h-3.5 text-teal-500" />
                     <h2 className="text-xs font-black uppercase text-white/50">{t('Environment', '환경 설정')}</h2>
                   </div>
                   <div className="grid grid-cols-2 gap-1.5">
@@ -1711,29 +1712,29 @@ export const UI: React.FC<UIProps> = ({
 
                   <div className="mt-4 space-y-4 px-1.5">
                     <div className="space-y-2">
-                       <div className="flex justify-between text-[10px] font-black text-white/50 uppercase tracking-widest leading-none">
-                         <span>{t('Intensity', '강도')}</span>
-                         <span className="text-emerald-500">{(state.intensity || 0).toFixed(2)}</span>
-                       </div>
-                       <input
-                         type="range" min="0" max="5" step="0.01"
-                         value={state.intensity || 0}
-                         onChange={(e) => onUpdateState({ intensity: parseFloat(e.target.value) })}
-                         className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-                       />
+                      <div className="flex justify-between text-[10px] font-black text-white/50 uppercase tracking-widest leading-none">
+                        <span>{t('Intensity', '강도')}</span>
+                        <span className="text-teal-500">{(state.intensity || 0).toFixed(2)}</span>
+                      </div>
+                      <input
+                        type="range" min="0" max="5" step="0.01"
+                        value={state.intensity || 0}
+                        onChange={(e) => onUpdateState({ intensity: parseFloat(e.target.value) })}
+                        className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-teal-500"
+                      />
                     </div>
 
                     <div className="space-y-2">
-                       <div className="flex justify-between text-[10px] font-black text-white/50 uppercase tracking-widest leading-none">
-                         <span>{t('Background Blur', '배경 흐림')}</span>
-                         <span className="text-emerald-500">{(state.environmentBlur || 0).toFixed(2)}</span>
-                       </div>
-                       <input
-                         type="range" min="0" max="1" step="0.01"
-                         value={state.environmentBlur || 0}
-                         onChange={(e) => onUpdateState({ environmentBlur: parseFloat(e.target.value) })}
-                         className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-                       />
+                      <div className="flex justify-between text-[10px] font-black text-white/50 uppercase tracking-widest leading-none">
+                        <span>{t('Background Blur', '배경 흐림')}</span>
+                        <span className="text-teal-500">{(state.environmentBlur || 0).toFixed(2)}</span>
+                      </div>
+                      <input
+                        type="range" min="0" max="1" step="0.01"
+                        value={state.environmentBlur || 0}
+                        onChange={(e) => onUpdateState({ environmentBlur: parseFloat(e.target.value) })}
+                        className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-teal-500"
+                      />
                     </div>
                     <div className="space-y-1.5 mt-4">
                       {[
@@ -1750,43 +1751,43 @@ export const UI: React.FC<UIProps> = ({
                             </div>
                             <button
                               onClick={() => onUpdateState({ [item.key]: !(state as any)[item.key] })}
-                              className={`w-10 h-5 rounded-full transition-all relative p-0.5 border ${item.state ? 'bg-emerald-500/20 border-emerald-500/30' : 'bg-black/40 border-white/10'}`}
+                              className={`w-10 h-5 rounded-full transition-all relative p-0.5 border ${item.state ? 'bg-teal-500/20 border-teal-500/30' : 'bg-black/40 border-white/10'}`}
                             >
-                              <div className={`w-3.5 h-3.5 rounded-full transition-all ${item.state ? 'translate-x-5 bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'translate-x-0 bg-white/20'}`} />
+                              <div className={`w-3.5 h-3.5 rounded-full transition-all ${item.state ? 'translate-x-5 bg-teal-500 shadow-[0_0_10px_rgba(45,212,191,0.5)]' : 'translate-x-0 bg-white/20'}`} />
                             </button>
                           </div>
-                          
+
                           {item.key === 'showBackgroundColor' && item.state && (
                             <div className="pt-3 border-t border-white/5 space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                               <div className="flex justify-between text-[10px] font-black text-white/30 uppercase tracking-widest leading-none">
-                                  <span>{t('Backdrop Color', '배경 색상')}</span>
-                                  <span className="text-emerald-500 font-mono uppercase">{state.backgroundColor}</span>
-                               </div>
-                               <input
-                                 type="color"
-                                 value={state.backgroundColor}
-                                 onChange={(e) => onUpdateState({ backgroundColor: e.target.value })}
-                                 className="w-full h-6 bg-transparent cursor-pointer rounded overflow-hidden border-none"
-                               />
+                              <div className="flex justify-between text-[10px] font-black text-white/30 uppercase tracking-widest leading-none">
+                                <span>{t('Backdrop Color', '배경 색상')}</span>
+                                <span className="text-teal-500 font-mono uppercase">{state.backgroundColor}</span>
+                              </div>
+                              <input
+                                type="color"
+                                value={state.backgroundColor}
+                                onChange={(e) => onUpdateState({ backgroundColor: e.target.value })}
+                                className="w-full h-6 bg-transparent cursor-pointer rounded overflow-hidden border-none"
+                              />
                             </div>
                           )}
-                          
+
                           {item.key === 'showGrid' && item.state && (
                             <div className="pt-3 border-t border-white/5 space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
-                               <div className="space-y-2">
-                                  <div className="flex justify-between text-[10px] font-black text-white/30 uppercase tracking-widest leading-none">
-                                    <span>{t('Grid Color', '그리드 색상')}</span>
-                                    <span className="text-emerald-500 font-mono uppercase">{state.gridColor}</span>
-                                  </div>
-                                  <div className="flex items-center gap-3">
-                                    <input
-                                      type="color"
-                                      value={state.gridColor}
-                                      onChange={(e) => onUpdateState({ gridColor: e.target.value })}
-                                      className="w-full h-6 bg-transparent cursor-pointer rounded overflow-hidden border-none"
-                                    />
-                                  </div>
-                               </div>
+                              <div className="space-y-2">
+                                <div className="flex justify-between text-[10px] font-black text-white/30 uppercase tracking-widest leading-none">
+                                  <span>{t('Grid Color', '그리드 색상')}</span>
+                                  <span className="text-teal-500 font-mono uppercase">{state.gridColor}</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <input
+                                    type="color"
+                                    value={state.gridColor}
+                                    onChange={(e) => onUpdateState({ gridColor: e.target.value })}
+                                    className="w-full h-6 bg-transparent cursor-pointer rounded overflow-hidden border-none"
+                                  />
+                                </div>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -1794,52 +1795,52 @@ export const UI: React.FC<UIProps> = ({
                     </div>
                   </div>
                 </section>
-                
+
                 {/* 4. Post-processing Section */}
                 <section className="pt-6 border-t border-white/5 space-y-4">
                   <div className="flex items-center gap-2.5 mb-1 px-1.5 h-7">
-                    <Maximize className="w-3.5 h-3.5 text-emerald-500" />
+                    <Maximize className="w-3.5 h-3.5 text-teal-500" />
                     <h2 className="text-xs font-black uppercase tracking-widest text-white/50">{t('Post Processing', '후처리 설정')}</h2>
                   </div>
-                  
+
                   <div className="space-y-4 px-1.5">
                     <div className="space-y-2">
-                       <div className="flex justify-between text-[10px] font-black text-white/50 uppercase tracking-widest leading-none">
-                         <span>{t('Vignette Size', '비네트 크기')}</span>
-                         <span className="text-emerald-500">{(state.vignetteSize || 0).toFixed(2)}</span>
-                       </div>
-                       <input
-                         type="range" min="0" max="1" step="0.01"
-                         value={state.vignetteSize || 0}
-                         onChange={(e) => onUpdateState({ vignetteSize: parseFloat(e.target.value) })}
-                         className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-                       />
-                    </div>
-                    
-                    <div className="space-y-2">
-                       <div className="flex justify-between text-[10px] font-black text-white/50 uppercase tracking-widest leading-none">
-                         <span>{t('Vignette Darkness', '비네트 어두움')}</span>
-                         <span className="text-emerald-500">{(state.vignetteDarkness || 0).toFixed(2)}</span>
-                       </div>
-                       <input
-                         type="range" min="0" max="1" step="0.01"
-                         value={state.vignetteDarkness || 0}
-                         onChange={(e) => onUpdateState({ vignetteDarkness: parseFloat(e.target.value) })}
-                         className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-                       />
+                      <div className="flex justify-between text-[10px] font-black text-white/50 uppercase tracking-widest leading-none">
+                        <span>{t('Vignette Size', '비네트 크기')}</span>
+                        <span className="text-teal-500">{(state.vignetteSize || 0).toFixed(2)}</span>
+                      </div>
+                      <input
+                        type="range" min="0" max="1" step="0.01"
+                        value={state.vignetteSize || 0}
+                        onChange={(e) => onUpdateState({ vignetteSize: parseFloat(e.target.value) })}
+                        className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-teal-500"
+                      />
                     </div>
 
                     <div className="space-y-2">
-                       <div className="flex justify-between text-[10px] font-black text-white/50 uppercase tracking-widest leading-none">
-                         <span>{t('Bloom Intensity', '블룸 강도')}</span>
-                         <span className="text-emerald-500">{(state.bloomIntensity || 0).toFixed(2)}</span>
-                       </div>
-                       <input
-                         type="range" min="0" max="2" step="0.01"
-                         value={state.bloomIntensity || 0}
-                         onChange={(e) => onUpdateState({ bloomIntensity: parseFloat(e.target.value) })}
-                         className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-                       />
+                      <div className="flex justify-between text-[10px] font-black text-white/50 uppercase tracking-widest leading-none">
+                        <span>{t('Vignette Darkness', '비네트 어두움')}</span>
+                        <span className="text-teal-500">{(state.vignetteDarkness || 0).toFixed(2)}</span>
+                      </div>
+                      <input
+                        type="range" min="0" max="1" step="0.01"
+                        value={state.vignetteDarkness || 0}
+                        onChange={(e) => onUpdateState({ vignetteDarkness: parseFloat(e.target.value) })}
+                        className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-teal-500"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-[10px] font-black text-white/50 uppercase tracking-widest leading-none">
+                        <span>{t('Bloom Intensity', '블룸 강도')}</span>
+                        <span className="text-teal-500">{(state.bloomIntensity || 0).toFixed(2)}</span>
+                      </div>
+                      <input
+                        type="range" min="0" max="2" step="0.01"
+                        value={state.bloomIntensity || 0}
+                        onChange={(e) => onUpdateState({ bloomIntensity: parseFloat(e.target.value) })}
+                        className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-teal-500"
+                      />
                     </div>
                   </div>
                 </section>
@@ -1847,7 +1848,7 @@ export const UI: React.FC<UIProps> = ({
                 {/* 4. Scene Management Section */}
                 <section className="pt-6 border-t border-white/5 space-y-3">
                   <div className="flex items-center gap-2.5 mb-1 px-1.5 h-7">
-                    <Settings className="w-3.5 h-3.5 text-emerald-500" />
+                    <Settings className="w-3.5 h-3.5 text-teal-500" />
                     <h2 className="text-xs font-black uppercase tracking-widest text-white/50">{t('Scene Management', '씬 관리')}</h2>
                   </div>
                   <div className="space-y-2">
@@ -1858,15 +1859,15 @@ export const UI: React.FC<UIProps> = ({
                       <div className="grid grid-cols-1 gap-1.5">
                         <button
                           onClick={() => onExport('all')}
-                          className="flex items-center justify-between gap-3 px-4 py-3 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-black font-black uppercase rounded-xl text-[10px] transition-all border border-emerald-500/20 shadow-xl group"
+                          className="flex items-center justify-between gap-3 px-4 py-3 bg-teal-500/10 hover:bg-teal-500 text-teal-500 hover:text-black font-black uppercase rounded-xl text-[10px] transition-all border border-teal-500/20 shadow-xl group"
                         >
                           <div className="flex items-center gap-3">
-                            <Layers size={14} className="group-hover:scale-110 transition-transform" /> 
+                            <Layers size={14} className="group-hover:scale-110 transition-transform" />
                             <span>{t('Export All', '전체 내보내기')}</span>
                           </div>
                           <span className="text-[10px] opacity-50 font-mono">.GLB</span>
                         </button>
-                        
+
                         <div className="grid grid-cols-2 gap-1.5">
                           <button
                             onClick={() => onExport('objects')}
@@ -1908,10 +1909,10 @@ export const UI: React.FC<UIProps> = ({
                 <div className="mt-6 pt-6 border-t border-white/5 opacity-50">
                   <div className="bg-black/40 p-4 rounded-2xl border border-white/5 shadow-inner">
                     <p className="text-[10px] font-mono leading-relaxed text-white/30 uppercase space-y-1">
-                      <span className="block border-b border-white/5 pb-2 mb-2 text-emerald-500/80 font-black text-[10px]">{t('Engine Status', '엔진 상태')} (V4.2)</span>
+                      <span className="block border-b border-white/5 pb-2 mb-2 text-teal-500/80 font-black text-[10px]">{t('Engine Status', '엔진 상태')} (V4.2)</span>
                       <span className="flex justify-between"><span>{t('Core', '코어')}:</span> <span className="text-white/60">PHYSICAL_PBR_BETA</span></span>
                       <span className="flex justify-between"><span>{t('Active Nodes', '활성 노드')}:</span> <span className="text-white/60">{state.items.length + state.lights.length} CHANNEL(S)</span></span>
-                      <span className="flex justify-between"><span>{t('Render State', '렌더링 상태')}:</span> <span className="text-emerald-500/50">STABLE_DIFFUSION_O1</span></span>
+                      <span className="flex justify-between"><span>{t('Render State', '렌더링 상태')}:</span> <span className="text-teal-500/50">STABLE_DIFFUSION_O1</span></span>
                     </p>
                   </div>
                 </div>
@@ -1922,19 +1923,19 @@ export const UI: React.FC<UIProps> = ({
       </aside>
 
       <button
-        style={{ 
-          right: sidebarOpen ? '345px' : '15px', 
-          transition: 'right 0.5s ease-in-out' 
+        style={{
+          right: sidebarOpen ? '345px' : '15px',
+          transition: 'right 0.5s ease-in-out'
         }}
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="absolute top-1/2 -translate-y-1/2 z-50 bg-[#0a0a0a]/80 backdrop-blur-xl hover:bg-emerald-500 text-white hover:text-black p-2 rounded-full border border-white/10 transition-all pointer-events-auto shadow-[0_15px_35px_rgba(0,0,0,0.5)] group"
+        className="absolute top-1/2 -translate-y-1/2 z-50 bg-[#0a0a0a]/80 backdrop-blur-xl hover:bg-teal-500 text-white hover:text-black p-2 rounded-full border border-white/10 transition-all pointer-events-auto shadow-[0_15px_35px_rgba(0,0,0,0.5)] group"
       >
         {sidebarOpen ? <ChevronRight size={18} className="group-hover:scale-110 transition-transform" /> : <ChevronLeft size={18} className="group-hover:scale-110 transition-transform" />}
       </button>
 
       {/* Floorplan to SVG Modal */}
-      <FloorplanToSvg 
-        isOpen={showFloorplanModal} 
+      <FloorplanToSvg
+        isOpen={showFloorplanModal}
         onClose={() => setShowFloorplanModal(false)}
         onApply={(svgData) => {
           if (onSvgUpload) {

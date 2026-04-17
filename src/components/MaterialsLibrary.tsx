@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Box, Layers, Plus, RefreshCw, Library } from 'lucide-react';
 import { TextureConfig, identifyTextureType } from '../types';
+import { accentRgba } from '../theme';
 
 interface MaterialsLibraryProps {
   onAddTexture: (tex: TextureConfig) => void;
@@ -114,11 +115,11 @@ export const MaterialsLibrary: React.FC<MaterialsLibraryProps> = ({ onAddTexture
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2.5 mb-1 px-1.5 h-7">
-        <Library className="w-3.5 h-3.5 text-emerald-500" />
+        <Library className="w-3.5 h-3.5 text-teal-500" />
         <h2 className="text-xs font-black uppercase text-white/50">{t('Materials Library', '재질 라이브러리')}</h2>
         <button
           onClick={refresh}
-          className="ml-auto p-1 text-white/20 hover:text-emerald-500 transition-colors rounded-lg hover:bg-emerald-500/10"
+          className="ml-auto p-1 text-white/20 hover:text-teal-500 transition-colors rounded-lg hover:bg-teal-500/10"
           title={t('Refresh materials from /public/materials', '/public/materials에서 재질 새로고침')}
         >
           <RefreshCw size={12} />
@@ -134,7 +135,7 @@ export const MaterialsLibrary: React.FC<MaterialsLibraryProps> = ({ onAddTexture
         {materials.map((mat) => (
           <div 
             key={mat.id}
-            className="group relative bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 hover:border-emerald-500/30 rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer shadow-xl"
+            className="group relative bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 hover:border-teal-500/30 rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer shadow-xl"
             onClick={() => onAddTexture({
               ...mat,
               id: uuidv4(),
@@ -150,8 +151,8 @@ export const MaterialsLibrary: React.FC<MaterialsLibraryProps> = ({ onAddTexture
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60" />
               
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-emerald-500/10 backdrop-blur-[2px]">
-                <div className="bg-emerald-500 text-black p-2 rounded-full shadow-[0_0_20px_rgba(16,185,129,0.5)] transform translate-y-4 group-hover:translate-y-0 transition-transform">
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-teal-500/10 backdrop-blur-[2px]">
+                <div className={`bg-teal-500 text-black p-2 rounded-full shadow-[0_0_20px_${accentRgba(0.5)}] transform translate-y-4 group-hover:translate-y-0 transition-transform`}>
                   <Plus size={16} />
                 </div>
               </div>

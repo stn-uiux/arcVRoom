@@ -1,16 +1,40 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
+/* ============================================
+   🎨 ACCENT COLOR CONFIGURATION
+   ============================================
+   아래 두 색상만 변경하면 앱 전체의 액센트 색상이 바뀝니다.
+   Change the two colors below to update the entire app's accent color.
+   
+   --accent-400: 밝은 톤 (hover 상태 등)
+   --accent-500: 기본 톤 (주요 버튼, 텍스트 등)
+   ============================================ */
+:root {
+  /* 🎨 여기서 색상을 변경하세요 (theme.ts와 동일하게 맞추는 것을 권장) */
+  --accent-400: #2dd45f;  /* 밝은 액센트 (사용자 지정) */
+  --accent-500: #14b886;  /* 기본 액센트 */
+
+  /* RGB 값 (그림자용: #2dd45f -> rgb(45, 212, 95)) */
+  --accent-r: 45;
+  --accent-g: 212;
+  --accent-b: 95;
+}
+
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  /* Tailwind teal 색상을 커스텀 액센트 색상으로 오버라이드 */
+  --color-teal-400: var(--accent-400);
+  --color-teal-500: var(--accent-500);
 }
 
 body {
   @apply bg-[#0a0a0a] text-white antialiased overflow-hidden;
 }
 
-button, label {
+button,
+label {
   cursor: pointer;
 }
 
@@ -33,5 +57,3 @@ button, label {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   @apply bg-white/20;
 }
-
-

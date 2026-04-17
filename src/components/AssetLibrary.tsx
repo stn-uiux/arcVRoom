@@ -136,7 +136,7 @@ export const AssetLibrary: React.FC<AssetLibraryProps> = ({ onSelect }) => {
       {/* Position Refresh button for alignment with parent Title */}
       <button
         onClick={refresh}
-        className="absolute -top-7 right-2 p-1 text-white/20 hover:text-emerald-500 transition-colors rounded-lg hover:bg-emerald-500/10 z-10"
+        className="absolute -top-7 right-2 p-1 text-white/20 hover:text-teal-500 transition-colors rounded-lg hover:bg-teal-500/10 z-10"
         title="Refresh models from /public/models"
       >
         <RefreshCw size={12} />
@@ -150,14 +150,14 @@ export const AssetLibrary: React.FC<AssetLibraryProps> = ({ onSelect }) => {
               onClick={() => toggleCategory(cat.id)}
               className="w-full flex items-center gap-2.5 px-3 py-3 transition-all duration-300 hover:bg-white/[0.02] group"
             >
-              <span className={`${openCategories[cat.id] ? 'text-emerald-500' : 'text-white/30'} transition-colors`}>
+              <span className={`${openCategories[cat.id] ? 'text-teal-500' : 'text-white/30'} transition-colors`}>
                 {cat.icon}
               </span>
               <div className="flex flex-col items-start transition-transform duration-300 transform group-hover:translate-x-0.5">
                 <span className="text-[10px] font-black uppercase text-white/50 group-hover:text-white/80">{cat.name}</span>
                 <span className="text-[10px] font-bold uppercase text-white/30">{cat.label} • {cat.items.length}</span>
               </div>
-              <div className={`ml-auto text-white/30 transition-transform duration-300 ${openCategories[cat.id] ? 'rotate-180 text-emerald-500/50' : ''}`}>
+              <div className={`ml-auto text-white/30 transition-transform duration-300 ${openCategories[cat.id] ? 'rotate-180 text-teal-500/50' : ''}`}>
                 <ChevronDown size={12} />
               </div>
             </button>
@@ -175,9 +175,9 @@ export const AssetLibrary: React.FC<AssetLibraryProps> = ({ onSelect }) => {
                       <button
                         key={model.id}
                         onClick={() => onSelect((model.type || 'model') as any, model.url || '', model.name)}
-                        className="flex items-center gap-2 px-2 py-1.5 bg-white/[0.01] hover:bg-emerald-500/10 border border-white/5 hover:border-emerald-500/20 rounded-xl transition-all group shrink-0 h-9"
+                        className="flex items-center gap-2 px-2 py-1.5 bg-white/[0.01] hover:bg-teal-500/10 border border-white/5 hover:border-teal-500/20 rounded-xl transition-all group shrink-0 h-9"
                       >
-                        <div className="w-5 h-5 rounded-md bg-white/[0.05] flex items-center justify-center text-white/30 group-hover:text-emerald-500 group-hover:scale-110 transition-all duration-500 shadow-inner shrink-0">
+                        <div className="w-5 h-5 rounded-md bg-white/[0.05] flex items-center justify-center text-white/30 group-hover:text-teal-500 group-hover:scale-110 transition-all duration-500 shadow-inner shrink-0">
                           {getIcon(model.id)}
                         </div>
                         <span className="truncate text-left text-[10px] font-bold text-white/40 group-hover:text-white uppercase tracking-tighter transition-colors leading-none">

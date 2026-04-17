@@ -36,7 +36,7 @@ export const TextureManagerPanel: React.FC<TextureManagerPanelProps> = ({
       <div className="space-y-1.5">
         {textures && textures.length === 0 && <div className="text-[10px] text-white/20 italic text-center py-3 border border-white/5 border-dashed rounded-xl">{t('No custom textures', '등록된 커스텀 재질이 없습니다')}</div>}
         {textures.map((tex) => (
-          <div key={tex.id} className={`bg-white/2 rounded-xl border transition-all ${expandedId === tex.id ? 'border-emerald-500/30 bg-white/5' : 'border-white/5 hover:bg-white/5'}`}>
+          <div key={tex.id} className={`bg-white/2 rounded-xl border transition-all ${expandedId === tex.id ? 'border-teal-500/30 bg-white/5' : 'border-white/5 hover:bg-white/5'}`}>
             <div className="flex items-center justify-between p-2.5 cursor-pointer" onClick={() => setExpandedId(expandedId === tex.id ? null : tex.id)}>
               <div className="flex items-center gap-2.5 overflow-hidden">
                 <div className="w-6 h-6 rounded-lg bg-black/40 shrink-0 overflow-hidden border border-white/10 shadow-inner">
@@ -62,7 +62,7 @@ export const TextureManagerPanel: React.FC<TextureManagerPanelProps> = ({
                       type="text" 
                       value={tex.name} 
                       onChange={(e) => onUpdate(tex.id, { name: e.target.value })} 
-                      className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-[10px] text-white focus:border-emerald-500/50 outline-none transition-all" 
+                      className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-[10px] text-white focus:border-teal-500/50 outline-none transition-all" 
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -98,7 +98,7 @@ export const TextureManagerPanel: React.FC<TextureManagerPanelProps> = ({
                       const hasMap = tex.maps?.[mapType];
                       return (
                         <div key={map.key} className="relative group/map">
-                          <label className={`flex flex-col items-center justify-center aspect-square rounded-xl border-2 border-dashed transition-all cursor-pointer overflow-hidden ${hasMap ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/10'}`}>
+                          <label className={`flex flex-col items-center justify-center aspect-square rounded-xl border-2 border-dashed transition-all cursor-pointer overflow-hidden ${hasMap ? 'border-teal-500/50 bg-teal-500/5' : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/10'}`}>
                             <input 
                               type="file" 
                               accept="image/*" 
@@ -154,7 +154,7 @@ export const TextureManagerPanel: React.FC<TextureManagerPanelProps> = ({
                     <div key={slider.field} className="space-y-1.5 group/slider">
                       <div className="flex justify-between text-[10px] text-white/30 font-black uppercase pl-1">
                         <span>{slider.label}</span>
-                        <span className="text-emerald-500 opacity-0 group-hover/slider:opacity-100 transition-opacity">{(tex as any)[slider.field] ?? slider.default}</span>
+                        <span className="text-teal-500 opacity-0 group-hover/slider:opacity-100 transition-opacity">{(tex as any)[slider.field] ?? slider.default}</span>
                       </div>
                       <input 
                         type="range" 
@@ -163,7 +163,7 @@ export const TextureManagerPanel: React.FC<TextureManagerPanelProps> = ({
                         step={slider.field === 'displacementScale' ? "0.001" : "0.01"} 
                         value={(tex as any)[slider.field] ?? slider.default} 
                         onChange={(e) => onUpdate(tex.id, { [slider.field]: parseFloat(e.target.value) })} 
-                        className="w-full accent-emerald-500 h-1 bg-white/5 rounded-full appearance-none cursor-pointer hover:bg-white/10 transition-colors" 
+                        className="w-full accent-teal-500 h-1 bg-white/5 rounded-full appearance-none cursor-pointer hover:bg-white/10 transition-colors" 
                       />
                     </div>
                   ))}

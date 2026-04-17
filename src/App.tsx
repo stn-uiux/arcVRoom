@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { AppState, FurnitureItem, FurnitureType, TextureConfig } from './types';
 import { Scene } from './components/Scene';
 import { UI } from './components/UI';
+import { accentRgba, syncThemeColors } from './theme';
 
 import * as THREE from 'three';
 // @ts-ignore
@@ -76,6 +77,11 @@ export default function App() {
   const sceneRef = useRef<any>(null);
   const viewCenterRef = useRef<[number, number, number]>([0, 0, 0]);
 
+  // 테마 색상 동기화 (JS -> CSS Variables)
+  useEffect(() => {
+    syncThemeColors();
+  }, []);
+
   const [shiftPressed, setShiftPressed] = useState(false);
   const [ctrlPressed, setCtrlPressed] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -133,7 +139,7 @@ export default function App() {
       id: uuidv4(),
       type,
       name: name || `New ${type.charAt(0).toUpperCase() + type.slice(1)}`,
-      position: [...viewCenterRef.current] as [number, number, number],
+      position: [viewCenterRef.current[0], 0, viewCenterRef.current[2]] as [number, number, number],
       rotation: [0, 0, 0],
       scale: [1, 1, 1],
       color: '#ffffff',
@@ -766,21 +772,21 @@ export default function App() {
       }}
     >
       <div 
-        className={`relative h-full overflow-hidden ${isDraggingViewport ? 'ring-4 ring-inset ring-emerald-500 shadow-[0_0_50px_rgba(16,185,129,0.3)]' : ''}`}
+        className={`relative h-full overflow-hidden ${isDraggingViewport ? `ring-4 ring-inset ring-teal-500 shadow-[0_0_50px_${accentRgba(0.3)}]` : ''}`}
         onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingViewport(true); }}
         onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingViewport(true); }}
         onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingViewport(false); }}
         onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDrop(e); }}
       >
         {isDraggingViewport && (
-          <div className="absolute inset-0 z-[100] flex flex-col items-center justify-center bg-emerald-500/10 backdrop-blur-[2px] pointer-events-none animate-in fade-in duration-300">
-            <div className="bg-[#0a0a0a]/90 p-8 rounded-[40px] border border-emerald-500/30 shadow-2xl flex flex-col items-center gap-4 transform scale-110">
-              <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center animate-bounce">
-                <Box className="w-8 h-8 text-emerald-500" />
+          <div className="absolute inset-0 z-[100] flex flex-col items-center justify-center bg-teal-500/10 backdrop-blur-[2px] pointer-events-none animate-in fade-in duration-300">
+            <div className="bg-[#0a0a0a]/90 p-8 rounded-[40px] border border-teal-500/30 shadow-2xl flex flex-col items-center gap-4 transform scale-110">
+              <div className="w-16 h-16 bg-teal-500/20 rounded-full flex items-center justify-center animate-bounce">
+                <Box className="w-8 h-8 text-teal-500" />
               </div>
               <div className="text-center">
                 <p className="text-lg font-black uppercase tracking-widest text-white">{state.language === 'ko' ? '에셋 드롭하여 로드' : 'Drop to Load Assets'}</p>
-                <p className="text-[10px] font-bold text-emerald-500/60 uppercase mt-1">GLTF • GLB • SVG</p>
+                <p className="text-[10px] font-bold text-teal-500/60 uppercase mt-1">GLTF • GLB • SVG</p>
               </div>
             </div>
           </div>

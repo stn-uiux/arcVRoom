@@ -4,6 +4,7 @@ import {
   X, Upload, Download, ZoomIn, ZoomOut, Undo2,
   Contrast, Palette, SlidersHorizontal, RefreshCw, Pencil, Trash2, Eye, EyeOff, Spline, Grid, Lock, Unlock, ChevronUp, ChevronDown
 } from 'lucide-react';
+import { ACCENT_400, accentRgba } from '../theme';
 
 // ──────────────────────────────────────────────
 // Types
@@ -246,8 +247,8 @@ function extractWalls(canvas: HTMLCanvasElement, adj: ImageAdjustments): Uint8Ar
 
 /** Draw binary grid onto canvas for preview */
 function drawBinaryPreview(
-  grid: Uint8Array, w: number, h: number, 
-  canvas: HTMLCanvasElement, originalCanvas: HTMLCanvasElement, 
+  grid: Uint8Array, w: number, h: number,
+  canvas: HTMLCanvasElement, originalCanvas: HTMLCanvasElement,
   showOverlay: boolean, paths: SvgPath[], zoom: number
 ) {
   canvas.width = w;
@@ -261,7 +262,7 @@ function drawBinaryPreview(
     ctx.fillRect(0, 0, w, h);
     ctx.globalAlpha = 1.0;
 
-    // 1) Draw wall mask (Emerald tint)
+    // 1) Draw wall mask (teal tint)
     const imageData = ctx.getImageData(0, 0, w, h);
     const d = imageData.data;
     for (let i = 0; i < grid.length; i++) {
@@ -272,9 +273,9 @@ function drawBinaryPreview(
     ctx.putImageData(imageData, 0, 0);
 
     // 2) ★ Draw solid walls (Fill instead of Stroke for "no border" look)
-    ctx.fillStyle = '#10b981';
+    ctx.fillStyle = ACCENT_400;
     ctx.globalAlpha = 0.8;
-    
+
     // Create one big path for even-odd fill in Canvas
     ctx.beginPath();
     paths.forEach(p => {
@@ -435,19 +436,19 @@ function convexHull(points: Point[]): Point[] {
   if (points.length <= 3) return points;
   const sorted = [...points].sort((a, b) => a.x !== b.x ? a.x - b.x : a.y - b.y);
   const cross = (o: Point, a: Point, b: Point) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
-  
+
   const lower: Point[] = [];
   for (let i = 0; i < sorted.length; i++) {
     while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], sorted[i]) <= 0) lower.pop();
     lower.push(sorted[i]);
   }
-  
+
   const upper: Point[] = [];
   for (let i = sorted.length - 1; i >= 0; i--) {
     while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], sorted[i]) <= 0) upper.pop();
     upper.push(sorted[i]);
   }
-  
+
   lower.pop(); upper.pop();
   return lower.concat(upper);
 }
@@ -481,7 +482,7 @@ export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose,
   const [isPanning, setIsPanning] = useState(false);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [selectionBox, setSelectionBox] = useState<{ x1: number, y1: number, x2: number, y2: number } | null>(null);
-  const [snapGuides, setSnapGuides] = useState<{ x1: number, y1: number, x2: number, y2: number, type: 'h'|'v', isPerp?: boolean, isPerfect?: boolean }[]>([]);
+  const [snapGuides, setSnapGuides] = useState<{ x1: number, y1: number, x2: number, y2: number, type: 'h' | 'v', isPerp?: boolean, isPerfect?: boolean }[]>([]);
   const [snapCircle, setSnapCircle] = useState<{ x: number, y: number, r: number } | null>(null);
   const [perpPoint, setPerpPoint] = useState<Point | null>(null);
   const [addNodeGuide, setAddNodeGuide] = useState<{ s: number, i: number, pt: Point } | null>(null);
@@ -576,7 +577,7 @@ export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose,
     const name = file.name.toLowerCase();
     const extension = name.split('.').pop() || '';
     const supported = ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif'];
-    
+
     if (!supported.includes(extension)) {
       alert(`지원하지 않는 이미지 형식입니다: .${extension}\n(PNG, JPG, WEBP 등의 이미지 파일만 업로드 가능합니다.)`);
       return;
@@ -617,28 +618,28 @@ export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose,
   // Convert extracted walls to SVG paths
   const convertToSvg = useCallback(() => {
     if (previewPaths.length === 0) return;
-    
+
     // Merge all preview paths into one single "Wall System"
     const merged: SvgPath = {
       id: 'wall',
       subPaths: previewPaths.map(p => p.subPaths[0]),
       closed: true
     };
-    
+
     // Create Floor by computing Convex Hull of all wall points
     const allPoints: Point[] = [];
     previewPaths.forEach(p => p.subPaths[0].forEach(pt => allPoints.push(pt)));
-    
+
     const floorPoints = convexHull(allPoints);
     const floorPath: SvgPath = {
       id: 'floor',
       subPaths: [floorPoints],
       closed: true
     };
-    
+
     // Floor first (so it renders under), Wall second
     const initialPaths = [floorPath, merged];
-    setSvgPaths(initialPaths); 
+    setSvgPaths(initialPaths);
     const initialCopy = JSON.parse(JSON.stringify(initialPaths));
     lastSavedPathsRef.current = initialCopy;
     latestPathsRef.current = initialCopy;
@@ -661,8 +662,8 @@ export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose,
       // 2. Build combined Path 'd' attribute for even-odd filling
       const pathsSvg = svgPaths.filter(p => p.visible !== false).map(path => {
         const combinedD = path.subPaths.map(points => {
-          const scaled = points.map(pt => ({ 
-            x: pt.x * scale, 
+          const scaled = points.map(pt => ({
+            x: pt.x * scale,
             y: pt.y * scale,
             bezier: pt.bezier ? {
               cx1: pt.bezier.cx1 * scale,
@@ -688,14 +689,14 @@ ${pathsSvg}
       const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      
+
       link.setAttribute('href', url);
       link.setAttribute('download', 'floorplan_wall.svg');
       link.style.visibility = 'hidden';
-      
+
       document.body.appendChild(link);
       link.click();
-      
+
       // Cleanup with generous timeout
       setTimeout(() => {
         document.body.removeChild(link);
@@ -714,11 +715,11 @@ ${pathsSvg}
       const w = sourceImage.naturalWidth;
       const h = sourceImage.naturalHeight;
       const scale = 1.0; // Use natural scale for scene application
-      
+
       const pathsSvg = svgPaths.filter(p => p.visible !== false).map(path => {
         const combinedD = path.subPaths.map(points => {
-          const scaled = points.map(pt => ({ 
-            x: pt.x * scale, 
+          const scaled = points.map(pt => ({
+            x: pt.x * scale,
             y: pt.y * scale,
             bezier: pt.bezier ? {
               cx1: pt.bezier.cx1 * scale,
@@ -867,13 +868,13 @@ ${pathsSvg}
       panStartRef.current = { x: e.clientX, y: e.clientY };
       return;
     }
-// Case 2: Dragging Points
+    // Case 2: Dragging Points
     if (draggingPoint && selectedPathId && selectedPoints.size > 0 && dragStartRef.current) {
       const isShift = e.shiftKey;
       let deltaX = svgPt.x - dragStartRef.current.x;
       let deltaY = svgPt.y - dragStartRef.current.y;
-      
-      const guides: { x1: number, y1: number, x2: number, y2: number, type: 'h'|'v', isPerp?: boolean, isPerfect?: boolean }[] = [];
+
+      const guides: { x1: number, y1: number, x2: number, y2: number, type: 'h' | 'v', isPerp?: boolean, isPerfect?: boolean }[] = [];
       const activePathId = selectedPathId || 'wall';
       const wall = svgPaths.find(p => p.id === activePathId) || svgPaths[0];
       if (wall.locked || wall.visible === false) return;
@@ -892,12 +893,12 @@ ${pathsSvg}
         const targetX = p.x + deltaX;
         const targetY = p.y + deltaY;
         const threshold = 12 / zoom;
-        
+
         // Neighbor check
         const prev = pts[(ptIdx - 1 + pts.length) % pts.length];
         const next = pts[(ptIdx + 1) % pts.length];
 
-        const margin = 100000; 
+        const margin = 100000;
         const w = sourceImage?.naturalWidth || 5000;
         const h = sourceImage?.naturalHeight || 5000;
 
@@ -921,70 +922,70 @@ ${pathsSvg}
           // 1. Thales's Circle Snap (Any-Angle 90-degree Corner)
           const cx = (prev.x + next.x) / 2;
           const cy = (prev.y + next.y) / 2;
-          const r = Math.sqrt((prev.x - next.x)**2 + (prev.y - next.y)**2) / 2;
-          
-          const distToCenter = Math.sqrt((targetX - cx)**2 + (targetY - cy)**2);
-          
+          const r = Math.sqrt((prev.x - next.x) ** 2 + (prev.y - next.y) ** 2) / 2;
+
+          const distToCenter = Math.sqrt((targetX - cx) ** 2 + (targetY - cy) ** 2);
+
           let snappedToCircle = false;
           if (Math.abs(distToCenter - r) < threshold) {
-          const angle = Math.atan2(targetY - cy, targetX - cx);
-          const snappedX = cx + r * Math.cos(angle);
-          const snappedY = cy + r * Math.sin(angle);
-          
-          deltaX = snappedX - p.x;
-          deltaY = snappedY - p.y;
-          
-          const isH = Math.abs(snappedY - prev.y) < 0.5 || Math.abs(snappedY - next.y) < 0.5;
-          const isV = Math.abs(snappedX - prev.x) < 0.5 || Math.abs(snappedX - next.x) < 0.5;
-          const isPerfectCorner = isH && isV;
+            const angle = Math.atan2(targetY - cy, targetX - cx);
+            const snappedX = cx + r * Math.cos(angle);
+            const snappedY = cy + r * Math.sin(angle);
 
-          const extend = (p1: Point, p2: Point, length: number) => {
-            const dx = p2.x - p1.x; const dy = p2.y - p1.y;
-            const d = Math.sqrt(dx*dx + dy*dy);
-            if (d === 0) return { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y };
-            return {
-              x1: p2.x - (dx/d)*length, y1: p2.y - (dy/d)*length,
-              x2: p2.x + (dx/d)*length, y2: p2.y + (dy/d)*length
+            deltaX = snappedX - p.x;
+            deltaY = snappedY - p.y;
+
+            const isH = Math.abs(snappedY - prev.y) < 0.5 || Math.abs(snappedY - next.y) < 0.5;
+            const isV = Math.abs(snappedX - prev.x) < 0.5 || Math.abs(snappedX - next.x) < 0.5;
+            const isPerfectCorner = isH && isV;
+
+            const extend = (p1: Point, p2: Point, length: number) => {
+              const dx = p2.x - p1.x; const dy = p2.y - p1.y;
+              const d = Math.sqrt(dx * dx + dy * dy);
+              if (d === 0) return { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y };
+              return {
+                x1: p2.x - (dx / d) * length, y1: p2.y - (dy / d) * length,
+                x2: p2.x + (dx / d) * length, y2: p2.y + (dy / d) * length
+              };
             };
-          };
-          const g1 = extend(prev, { x: snappedX, y: snappedY }, margin);
-          const g2 = extend(next, { x: snappedX, y: snappedY }, margin);
+            const g1 = extend(prev, { x: snappedX, y: snappedY }, margin);
+            const g2 = extend(next, { x: snappedX, y: snappedY }, margin);
 
-          guides.push({ ...g1, type: 'v', isPerp: true, isPerfect: isPerfectCorner });
-          guides.push({ ...g2, type: 'h', isPerp: true, isPerfect: isPerfectCorner });
+            guides.push({ ...g1, type: 'v', isPerp: true, isPerfect: isPerfectCorner });
+            guides.push({ ...g2, type: 'h', isPerp: true, isPerfect: isPerfectCorner });
 
-          currentPerp = { x: snappedX, y: snappedY };
-          currentCircle = { x: cx, y: cy, r };
-          snappedToCircle = true;
-        }
+            currentPerp = { x: snappedX, y: snappedY };
+            currentCircle = { x: cx, y: cy, r };
+            snappedToCircle = true;
+          }
 
-        // 2. Global Axis Snap (Horizontal/Vertical)
-        if (!snappedToCircle) {
-           let snapH = false;
-           let snapV = false;
+          // 2. Global Axis Snap (Horizontal/Vertical)
+          if (!snappedToCircle) {
+            let snapH = false;
+            let snapV = false;
 
-           [prev, next].forEach(n => {
-            if (Math.abs(targetX - n.x) < threshold) {
-              deltaX = n.x - p.x;
-              snapV = true;
-            }
-            if (Math.abs(targetY - n.y) < threshold) {
-              deltaY = n.y - p.y;
-              snapH = true;
-            }
-          });
+            [prev, next].forEach(n => {
+              if (Math.abs(targetX - n.x) < threshold) {
+                deltaX = n.x - p.x;
+                snapV = true;
+              }
+              if (Math.abs(targetY - n.y) < threshold) {
+                deltaY = n.y - p.y;
+                snapH = true;
+              }
+            });
 
-          const isCorner = snapH && snapV;
-          [prev, next].forEach(n => {
-            if (Math.abs((p.x + deltaX) - n.x) < 0.5) {
-              guides.push({ x1: n.x, y1: -margin, x2: n.x, y2: h + margin, type: 'v', isPerp: isCorner, isPerfect: isCorner });
-            }
-            if (Math.abs((p.y + deltaY) - n.y) < 0.5) {
-              guides.push({ x1: -margin, y1: n.y, x2: w + margin, y2: n.y, type: 'h', isPerp: isCorner, isPerfect: isCorner });
-            }
-          });
-        }
-      } // end of else (main point)
+            const isCorner = snapH && snapV;
+            [prev, next].forEach(n => {
+              if (Math.abs((p.x + deltaX) - n.x) < 0.5) {
+                guides.push({ x1: n.x, y1: -margin, x2: n.x, y2: h + margin, type: 'v', isPerp: isCorner, isPerfect: isCorner });
+              }
+              if (Math.abs((p.y + deltaY) - n.y) < 0.5) {
+                guides.push({ x1: -margin, y1: n.y, x2: w + margin, y2: n.y, type: 'h', isPerp: isCorner, isPerfect: isCorner });
+              }
+            });
+          }
+        } // end of else (main point)
       } // end of if (isShift)
 
       setSnapGuides(guides);
@@ -1004,7 +1005,7 @@ ${pathsSvg}
               if (selectedPoints.has(`${s}-${i}`)) {
                 movedX = deltaX; movedY = deltaY;
               }
-              
+
               let newBezier = point.bezier;
               if (newBezier) {
                 newBezier = { ...newBezier };
@@ -1026,17 +1027,17 @@ ${pathsSvg}
                 if (!isAlt) {
                   const nextIdx = (i + 1) % pLength;
                   if (selectedPoints.has(`${s}-${nextIdx}-c1`)) {
-                     newBezier.cx2 -= deltaX;
-                     newBezier.cy2 -= deltaY;
+                    newBezier.cx2 -= deltaX;
+                    newBezier.cy2 -= deltaY;
                   }
                   if (selectedPoints.has(`${s}-${prevIdx}-c2`)) {
-                     newBezier.cx1 -= deltaX;
-                     newBezier.cy1 -= deltaY;
+                    newBezier.cx1 -= deltaX;
+                    newBezier.cy1 -= deltaY;
                   }
                 }
-                
+
               }
-              
+
               if (movedX || movedY || newBezier !== point.bezier) {
                 return { x: point.x + movedX, y: point.y + movedY, bezier: newBezier };
               }
@@ -1091,7 +1092,7 @@ ${pathsSvg}
         for (let i = 0; i < points.length; i++) {
           const prev = points[(i - 1 + points.length) % points.length];
           const curr = points[i];
-          
+
           const px = Math.min(prev.x, curr.x) - hitRadius;
           const py = Math.min(prev.y, curr.y) - hitRadius;
           const px2 = Math.max(prev.x, curr.x) + hitRadius;
@@ -1103,14 +1104,14 @@ ${pathsSvg}
             if (dist < hitRadius) {
               let midP: Point;
               if (curr.bezier) {
-                  const t = 0.5;
-                  const mt = 1 - t;
-                  midP = {
-                    x: mt*mt*mt*prev.x + 3*mt*mt*t*curr.bezier.cx1 + 3*mt*t*t*curr.bezier.cx2 + t*t*t*curr.x,
-                    y: mt*mt*mt*prev.y + 3*mt*mt*t*curr.bezier.cy1 + 3*mt*t*t*curr.bezier.cy2 + t*t*t*curr.y
-                  };
+                const t = 0.5;
+                const mt = 1 - t;
+                midP = {
+                  x: mt * mt * mt * prev.x + 3 * mt * mt * t * curr.bezier.cx1 + 3 * mt * t * t * curr.bezier.cx2 + t * t * t * curr.x,
+                  y: mt * mt * mt * prev.y + 3 * mt * mt * t * curr.bezier.cy1 + 3 * mt * t * t * curr.bezier.cy2 + t * t * t * curr.y
+                };
               } else {
-                  midP = { x: (prev.x + curr.x)/2, y: (prev.y + curr.y)/2 };
+                midP = { x: (prev.x + curr.x) / 2, y: (prev.y + curr.y) / 2 };
               }
               setAddNodeGuide({ s, i, pt: midP });
               foundHover = true;
@@ -1193,39 +1194,39 @@ ${pathsSvg}
             const next = pts[nextIdx];
 
             if (pt.bezier) {
-               const { bezier, ...rest } = pt;
-               pts[i] = rest;
+              const { bezier, ...rest } = pt;
+              pts[i] = rest;
             } else {
-               // Calculate smooth tangent parallel to the chord (next - prev)
-               const dx = next.x - prev.x;
-               const dy = next.y - prev.y;
-               const len = Math.hypot(dx, dy) || 1;
-               const ux = dx / len;
-               const uy = dy / len;
-               const handleLen = 40; // Default handle length
+              // Calculate smooth tangent parallel to the chord (next - prev)
+              const dx = next.x - prev.x;
+              const dy = next.y - prev.y;
+              const len = Math.hypot(dx, dy) || 1;
+              const ux = dx / len;
+              const uy = dy / len;
+              const handleLen = 40; // Default handle length
 
-               // Incoming segment to `i` (from `prev`)
-               pts[i] = {
-                 ...pt,
-                 bezier: {
-                   cx1: prev.x + (pt.x - prev.x) * 0.33,
-                   cy1: prev.y + (pt.y - prev.y) * 0.33,
-                   cx2: pt.x - ux * handleLen,
-                   cy2: pt.y - uy * handleLen
-                 }
-               };
-               
-               // Outgoing segment from `i` (to `next`)
-               const nextBz = pts[nextIdx].bezier;
-               pts[nextIdx] = {
-                 ...next,
-                 bezier: {
-                   cx1: pt.x + ux * handleLen,
-                   cy1: pt.y + uy * handleLen,
-                   cx2: nextBz ? nextBz.cx2 : next.x - (next.x - pt.x) * 0.33,
-                   cy2: nextBz ? nextBz.cy2 : next.y - (next.y - pt.y) * 0.33
-                 }
-               };
+              // Incoming segment to `i` (from `prev`)
+              pts[i] = {
+                ...pt,
+                bezier: {
+                  cx1: prev.x + (pt.x - prev.x) * 0.33,
+                  cy1: prev.y + (pt.y - prev.y) * 0.33,
+                  cx2: pt.x - ux * handleLen,
+                  cy2: pt.y - uy * handleLen
+                }
+              };
+
+              // Outgoing segment from `i` (to `next`)
+              const nextBz = pts[nextIdx].bezier;
+              pts[nextIdx] = {
+                ...next,
+                bezier: {
+                  cx1: pt.x + ux * handleLen,
+                  cy1: pt.y + uy * handleLen,
+                  cx2: nextBz ? nextBz.cx2 : next.x - (next.x - pt.x) * 0.33,
+                  cy2: nextBz ? nextBz.cy2 : next.y - (next.y - pt.y) * 0.33
+                }
+              };
             }
           });
           return pts;
@@ -1267,10 +1268,10 @@ ${pathsSvg}
               if (modified) {
                 // If both are completely retracted, delete the curve entirely
                 if (newBz.cx1 === prev.x && newBz.cy1 === prev.y && newBz.cx2 === pt.x && newBz.cy2 === pt.y) {
-                    const { bezier, ...rest } = pts[i];
-                    pts[i] = rest;
+                  const { bezier, ...rest } = pts[i];
+                  pts[i] = rest;
                 } else {
-                    pts[i] = { ...pts[i], bezier: newBz };
+                  pts[i] = { ...pts[i], bezier: newBz };
                 }
               }
             }
@@ -1301,7 +1302,7 @@ ${pathsSvg}
       if (activeTag === 'INPUT' || activeTag === 'TEXTAREA') return;
 
       if (e.code === 'Space' || e.key === ' ') {
-        setIsSpacePressed(true); 
+        setIsSpacePressed(true);
         e.preventDefault();
       }
 
@@ -1342,12 +1343,12 @@ ${pathsSvg}
     <div className="space-y-1">
       <div className="flex justify-between text-[10px] font-black text-white/40 uppercase tracking-widest">
         <span>{label}</span>
-        <span className="text-emerald-500 font-mono">{value.toFixed(s && s < 1 ? 1 : 0)}{unit || ''}</span>
+        <span className="text-teal-500 font-mono">{value.toFixed(s && s < 1 ? 1 : 0)}{unit || ''}</span>
       </div>
       <input
         type="range" min={min} max={max} step={s || 1} value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+        className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-teal-500"
       />
     </div>
   );
@@ -1359,7 +1360,6 @@ ${pathsSvg}
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-lg"
-        onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       >
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
@@ -1368,17 +1368,16 @@ ${pathsSvg}
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981] animate-pulse" />
+              <div className="w-2 h-2 rounded-full bg-teal-500 shadow-[0_0_10px_#2dd4bf] animate-pulse" />
               <h2 className="text-sm font-black uppercase text-white/80">{t('Create SVG Floorplan', 'SVG 도면 생성')}</h2>
               <div className="flex gap-1 ml-4">
                 {['upload', 'adjust', 'edit'].map((s, i) => (
                   <div key={s} className="flex items-center gap-1">
-                    <div className={`w-6 h-6 rounded-full text-[10px] font-black flex items-center justify-center border transition-all ${
-                      step === s ? 'bg-emerald-500 text-black border-emerald-500' :
-                      ['upload', 'adjust', 'edit'].indexOf(step) > i ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/30' :
-                      'bg-white/5 text-white/20 border-white/10'
-                    }`}>{i + 1}</div>
-                    {i < 2 && <div className={`w-6 h-px ${['upload', 'adjust', 'edit'].indexOf(step) > i ? 'bg-emerald-500/30' : 'bg-white/5'}`} />}
+                    <div className={`w-6 h-6 rounded-full text-[10px] font-black flex items-center justify-center border transition-all ${step === s ? 'bg-teal-500 text-black border-teal-500' :
+                      ['upload', 'adjust', 'edit'].indexOf(step) > i ? 'bg-teal-500/20 text-teal-500 border-teal-500/30' :
+                        'bg-white/5 text-white/20 border-white/10'
+                      }`}>{i + 1}</div>
+                    {i < 2 && <div className={`w-6 h-px ${['upload', 'adjust', 'edit'].indexOf(step) > i ? 'bg-teal-500/30' : 'bg-white/5'}`} />}
                   </div>
                 ))}
               </div>
@@ -1403,9 +1402,8 @@ ${pathsSvg}
                   onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                   onDragLeave={() => setIsDragging(false)}
                   onDrop={handleDrop}
-                  className={`w-full max-w-xl aspect-[4/3] rounded-3xl border-2 border-dashed transition-all flex flex-col items-center justify-center gap-4 cursor-pointer ${
-                    isDragging ? 'border-emerald-500 bg-emerald-500/5 scale-[1.02]' : 'border-white/10 hover:border-white/20 bg-white/[0.02]'
-                  }`}
+                  className={`w-full max-w-xl aspect-[4/3] rounded-3xl border-2 border-dashed transition-all flex flex-col items-center justify-center gap-4 group cursor-pointer ${isDragging ? 'border-teal-500 bg-teal-500/5 scale-[1.02]' : 'border-white/5 bg-white/[0.02] hover:border-teal-500/50'
+                    }`}
                   onClick={() => {
                     const input = document.createElement('input');
                     input.type = 'file';
@@ -1414,11 +1412,11 @@ ${pathsSvg}
                     input.click();
                   }}
                 >
-                  <div className={`p-6 rounded-full transition-all ${isDragging ? 'bg-emerald-500/20' : 'bg-white/5'}`}>
-                    <Upload size={32} className={`transition-colors ${isDragging ? 'text-emerald-500' : 'text-white/20'}`} />
+                  <div className={`p-6 rounded-full transition-all ${isDragging ? 'bg-teal-500/20' : 'bg-white/5 group-hover:bg-teal-500/20 group-hover:text-teal-500'}`}>
+                    <Upload size={32} className={`transition-colors ${isDragging ? 'text-teal-500' : 'text-white/20 group-hover:text-teal-500'}`} />
                   </div>
                   <div className="text-center space-y-2">
-                    <p className="text-sm font-black uppercase text-white/60">{t('Drop Floorplan Image Here', '도면 이미지를 여기에 드롭하세요')}</p>
+                    <p className={`text-sm font-black uppercase ${isDragging ? 'text-white/60' : 'text-white/60 group-hover:text-white'}`}>{t('Drop Floorplan Image Here', '도면 이미지를 여기에 드롭하세요')}</p>
                     <p className="text-[10px] text-white/20 font-bold uppercase tracking-wider">{t('PNG, JPG, GIF, BMP, WEBP', '지원 형식: PNG, JPG, WEBP 등')}</p>
                   </div>
                 </div>
@@ -1455,9 +1453,9 @@ ${pathsSvg}
                                 threshold: 180,
                                 minArea: 800
                               }))}
-                              className="py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 text-[10px] font-black uppercase rounded-xl border border-emerald-500/20 transition-all flex items-center justify-center gap-2"
+                              className="py-2 bg-teal-500/10 hover:bg-teal-500/20 text-teal-500 text-[10px] font-black uppercase rounded-xl border border-teal-500/20 transition-all flex items-center justify-center gap-2"
                             >
-                              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
+                              <div className="w-1.5 h-1.5 rounded-full bg-teal-500 shadow-[0_0_8px_#2dd4bf]" />
                               {t('Wall Only', '벽체 강조')}
                             </button>
                           </div>
@@ -1473,11 +1471,10 @@ ${pathsSvg}
                             <button
                               key={panel.id}
                               onClick={() => setActivePanel(activePanel === panel.id ? null : panel.id)}
-                              className={`flex flex-col items-center gap-1 py-2 px-1 rounded-xl border transition-all text-[10px] font-black uppercase tracking-wider ${
-                                activePanel === panel.id
-                                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'
-                                  : 'bg-white/[0.03] border-white/5 text-white/40 hover:bg-white/[0.06]'
-                              }`}
+                              className={`flex flex-col items-center gap-1 py-2 px-1 rounded-xl border transition-all text-[10px] font-black uppercase tracking-wider ${activePanel === panel.id
+                                ? 'bg-teal-500/10 border-teal-500/30 text-teal-500'
+                                : 'bg-white/[0.03] border-white/5 text-white/40 hover:bg-white/[0.06]'
+                                }`}
                             >
                               {panel.icon}
                               <span>{panel.label}</span>
@@ -1527,10 +1524,10 @@ ${pathsSvg}
                         </AnimatePresence>
 
                         {/* ★ Wall Extraction Controls (always visible) */}
-                        <div className="space-y-3 p-3 bg-emerald-500/[0.03] rounded-xl border border-emerald-500/10">
+                        <div className="space-y-3 p-3 bg-teal-500/[0.03] rounded-xl border border-teal-500/10">
                           <div className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500/60">{t('Wall Extraction', '벽체 추출 설정')}</span>
+                            <div className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-teal-500/60">{t('Wall Extraction', '벽체 추출 설정')}</span>
                           </div>
                           <Slider label={t('Threshold', '임계값')} value={adj.threshold} min={0} max={255} onChange={v => setAdj(a => ({ ...a, threshold: v }))} />
                           <Slider label={t('Wall Thickness', '최소 벽 두께')} value={adj.wallThickness} min={0} max={15} onChange={v => setAdj(a => ({ ...a, wallThickness: v }))} unit="px" />
@@ -1540,17 +1537,15 @@ ${pathsSvg}
                           <div className="flex gap-2">
                             <button
                               onClick={() => setAdj(a => ({ ...a, invert: !a.invert }))}
-                              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all ${
-                                adj.invert ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-white/[0.03] border-white/5 text-white/40'
-                              }`}
+                              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all ${adj.invert ? 'bg-teal-500/10 border-teal-500/30 text-teal-500' : 'bg-white/[0.03] border-white/5 text-white/40'
+                                }`}
                             >
                               {t('Invert', '색상 반전')}
                             </button>
                             <button
                               onClick={() => setShowOverlay(!showOverlay)}
-                              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all ${
-                                showOverlay ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-white/[0.03] border-white/5 text-white/40'
-                              }`}
+                              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all ${showOverlay ? 'bg-teal-500/10 border-teal-500/30 text-teal-500' : 'bg-white/[0.03] border-white/5 text-white/40'
+                                }`}
                             >
                               {showOverlay ? <Eye size={12} /> : <EyeOff size={12} />}
                               {t('Overlay', '이미지 겹침')}
@@ -1569,11 +1564,11 @@ ${pathsSvg}
                         <button
                           onClick={convertToSvg}
                           disabled={!wallGrid || isProcessing || previewPaths.length === 0}
-                          className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase rounded-xl text-[11px] transition-all shadow-[0_0_30px_rgba(16,185,129,0.3)] disabled:opacity-30"
+                          className={`w-full py-3 bg-teal-500 hover:bg-teal-400 text-black font-black uppercase rounded-xl text-[11px] transition-all shadow-[0_0_30px_${accentRgba(0.3)}] disabled:opacity-30`}
                         >
                           {t('Convert to SVG', 'SVG 도면 생성하기')}
                         </button>
-                        
+
                         <div className="flex border-t border-white/5 pt-2 justify-between px-1">
                           <span className="text-[10px] font-black text-white/30 uppercase">Paths: {previewPaths.length}</span>
                           <span className="text-[10px] font-black text-white/30 uppercase">Points: {previewPaths.reduce((s, p) => s + (p.subPaths?.[0]?.length || 0), 0)}</span>
@@ -1586,30 +1581,27 @@ ${pathsSvg}
                         <div className="space-y-2">
                           <span className="text-[10px] font-black uppercase tracking-widest text-white/30">{t('Vector Edit', '벡터 편집')}</span>
                           <div className="flex gap-2 mb-2">
-                             <button
-                                 onClick={() => setShowBgInEdit(!showBgInEdit)}
-                                 className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all ${
-                                   showBgInEdit ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10'
-                                 }`}
-                               >
-                                 {showBgInEdit ? <Eye size={12} /> : <EyeOff size={12} />}
-                                 {t('Show Bg', '배경 보기')}
-                               </button>
-                             <button
-                                 onClick={() => setEnablePixelSnap(!enablePixelSnap)}
-                                 className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all ${
-                                   enablePixelSnap ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10'
-                                 }`}
-                               >
-                                 <Grid size={12} /> {t('Pixel Snap', '픽셀 스냅')}
-                               </button>
+                            <button
+                              onClick={() => setShowBgInEdit(!showBgInEdit)}
+                              className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all ${showBgInEdit ? 'bg-teal-500/10 border-teal-500/30 text-teal-500' : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10'
+                                }`}
+                            >
+                              {showBgInEdit ? <Eye size={12} /> : <EyeOff size={12} />}
+                              {t('Show Bg', '배경 보기')}
+                            </button>
+                            <button
+                              onClick={() => setEnablePixelSnap(!enablePixelSnap)}
+                              className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all ${enablePixelSnap ? 'bg-teal-500/10 border-teal-500/30 text-teal-500' : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10'
+                                }`}
+                            >
+                              <Grid size={12} /> {t('Pixel Snap', '픽셀 스냅')}
+                            </button>
                           </div>
                           <div className="grid grid-cols-2 gap-1.5">
                             <button
                               onClick={() => setEditMode(!editMode)}
-                              className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all ${
-                                editMode ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10'
-                              }`}
+                              className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all ${editMode ? 'bg-teal-500/10 border-teal-500/30 text-teal-500' : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10'
+                                }`}
                             >
                               <Pencil size={12} /> {t('Edit Points', '점 편집')}
                             </button>
@@ -1634,38 +1626,38 @@ ${pathsSvg}
                           <span className="text-[10px] font-black uppercase tracking-widest text-white/30">{t('Layers', '레이어 리스트')}</span>
                           <div className="flex flex-col gap-1.5">
                             {svgPaths.map((path, idx) => (
-                              <div key={path.id} 
-                                className={`px-2 py-2 rounded-xl border flex flex-col gap-2 transition-all cursor-pointer ${selectedPathId === path.id ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-white/10 bg-white/5'}`}
+                              <div key={path.id}
+                                className={`px-2 py-2 rounded-xl border flex flex-col gap-2 transition-all cursor-pointer ${selectedPathId === path.id ? 'border-teal-500/50 bg-teal-500/10' : 'border-white/10 bg-white/5'}`}
                                 onClick={() => setSelectedPathId(path.id)}
                               >
                                 <div className="flex justify-between items-center w-full">
                                   <div className="flex items-center gap-1.5">
                                     <div className="flex flex-col opacity-30 hover:opacity-100 transition-all">
-                                      <button disabled={idx === 0} onClick={(e) => { e.stopPropagation(); if(idx === 0) return; const newPaths=[...svgPaths]; const temp=newPaths[idx-1]; newPaths[idx-1]=path; newPaths[idx]=temp; setSvgPaths(newPaths); commitChange(newPaths); }} className="hover:text-emerald-500 disabled:opacity-30 disabled:hover:text-white"><ChevronUp size={10} /></button>
-                                      <button disabled={idx === svgPaths.length - 1} onClick={(e) => { e.stopPropagation(); if(idx === svgPaths.length - 1) return; const newPaths=[...svgPaths]; const temp=newPaths[idx+1]; newPaths[idx+1]=path; newPaths[idx]=temp; setSvgPaths(newPaths); commitChange(newPaths); }} className="hover:text-emerald-500 disabled:opacity-30 disabled:hover:text-white"><ChevronDown size={10} /></button>
+                                      <button disabled={idx === 0} onClick={(e) => { e.stopPropagation(); if (idx === 0) return; const newPaths = [...svgPaths]; const temp = newPaths[idx - 1]; newPaths[idx - 1] = path; newPaths[idx] = temp; setSvgPaths(newPaths); commitChange(newPaths); }} className="hover:text-teal-500 disabled:opacity-30 disabled:hover:text-white"><ChevronUp size={10} /></button>
+                                      <button disabled={idx === svgPaths.length - 1} onClick={(e) => { e.stopPropagation(); if (idx === svgPaths.length - 1) return; const newPaths = [...svgPaths]; const temp = newPaths[idx + 1]; newPaths[idx + 1] = path; newPaths[idx] = temp; setSvgPaths(newPaths); commitChange(newPaths); }} className="hover:text-teal-500 disabled:opacity-30 disabled:hover:text-white"><ChevronDown size={10} /></button>
                                     </div>
-                                    <span className={`text-[10px] font-black uppercase tracking-widest ${selectedPathId === path.id ? 'text-emerald-500' : 'text-white/60'}`}>
+                                    <span className={`text-[10px] font-black uppercase tracking-widest ${selectedPathId === path.id ? 'text-teal-500' : 'text-white/60'}`}>
                                       {path.id === 'floor' ? t('Floor', '바닥면') : t('Wall', '벽체')} <span className="text-[10px] bg-white/10 px-1 py-0.5 rounded ml-1 text-white/40">{path.subPaths.length} pts</span>
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-1">
-                                    <button onClick={(e) => { e.stopPropagation(); const np = [...svgPaths]; np[idx] = {...path, visible: path.visible === false ? true : false}; setSvgPaths(np); commitChange(np); }} className={`p-1.5 rounded-lg transition-all ${path.visible === false ? 'bg-white/5 text-white/20 hover:bg-white/10' : 'bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/30'}`}>
+                                    <button onClick={(e) => { e.stopPropagation(); const np = [...svgPaths]; np[idx] = { ...path, visible: path.visible === false ? true : false }; setSvgPaths(np); commitChange(np); }} className={`p-1.5 rounded-lg transition-all ${path.visible === false ? 'bg-white/5 text-white/20 hover:bg-white/10' : 'bg-teal-500/20 text-teal-500 hover:bg-teal-500/30'}`}>
                                       {path.visible === false ? <EyeOff size={12} /> : <Eye size={12} />}
                                     </button>
-                                    <button onClick={(e) => { e.stopPropagation(); const np = [...svgPaths]; np[idx] = {...path, locked: !path.locked}; setSvgPaths(np); commitChange(np); }} className={`p-1.5 rounded-lg transition-all ${path.locked ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}>
+                                    <button onClick={(e) => { e.stopPropagation(); const np = [...svgPaths]; np[idx] = { ...path, locked: !path.locked }; setSvgPaths(np); commitChange(np); }} className={`p-1.5 rounded-lg transition-all ${path.locked ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}>
                                       {path.locked ? <Lock size={12} /> : <Unlock size={12} />}
                                     </button>
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-2 mt-1" onClick={e => e.stopPropagation()}>
-                                  <input type="color" value={path.color || (path.id === 'floor' ? '#dddddd' : '#333333')} 
-                                    onChange={(e) => { const np = [...svgPaths]; np[idx] = {...path, color: e.target.value}; setSvgPaths(np); }}
+                                  <input type="color" value={path.color || (path.id === 'floor' ? '#dddddd' : '#333333')}
+                                    onChange={(e) => { const np = [...svgPaths]; np[idx] = { ...path, color: e.target.value }; setSvgPaths(np); }}
                                     className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0" />
                                   <input type="range" min="0" max="1" step="0.05" value={path.opacity ?? (path.id === 'floor' ? 0.05 : 0.85)}
-                                    onChange={(e) => { const np = [...svgPaths]; np[idx] = {...path, opacity: parseFloat(e.target.value)}; setSvgPaths(np); }}
+                                    onChange={(e) => { const np = [...svgPaths]; np[idx] = { ...path, opacity: parseFloat(e.target.value) }; setSvgPaths(np); }}
                                     onMouseUp={() => commitChange(svgPaths)}
-                                    className="flex-1 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500" />
-                                  <span className="text-[10px] font-mono text-white/40 w-6 text-right">{(path.opacity ?? (path.id==='floor'?0.05:0.85)).toFixed(2)}</span>
+                                    className="flex-1 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-teal-500" />
+                                  <span className="text-[10px] font-mono text-white/40 w-6 text-right">{(path.opacity ?? (path.id === 'floor' ? 0.05 : 0.85)).toFixed(2)}</span>
                                 </div>
                               </div>
                             ))}
@@ -1679,7 +1671,7 @@ ${pathsSvg}
                             <input type="number" min={1} value={svgWidth}
                               onChange={(e) => setSvgWidth(e.target.value)}
                               onBlur={(e) => setSvgWidth(Math.max(1, parseInt(e.target.value) || 1000))}
-                              className="w-full bg-black/60 border border-white/10 rounded-lg px-3 py-2 text-[11px] font-mono font-bold text-white focus:border-emerald-500/50 outline-none"
+                              className="w-full bg-black/60 border border-white/10 rounded-lg px-3 py-2 text-[11px] font-mono font-bold text-white focus:border-teal-500/50 outline-none"
                             />
                           </div>
                           <button onClick={downloadSvg} disabled={svgPaths.length === 0}
@@ -1689,7 +1681,7 @@ ${pathsSvg}
                           </button>
 
                           <button onClick={handleApplyToScene} disabled={svgPaths.length === 0 || !onApply}
-                            className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase rounded-xl text-[11px] transition-all shadow-[0_0_30px_rgba(16,185,129,0.3)] disabled:opacity-30"
+                            className={`w-full flex items-center justify-center gap-2 py-3 bg-teal-500 hover:bg-teal-400 text-black font-black uppercase rounded-xl text-[11px] transition-all shadow-[0_0_30px_${accentRgba(0.3)}] disabled:opacity-30`}
                           >
                             <RefreshCw size={14} /> {t('Apply to Scene', '3D 현장에 반영하기')}
                           </button>
@@ -1720,16 +1712,16 @@ ${pathsSvg}
                     </div>
                     {step === 'edit' && (
                       <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">
-                        {isSpacePressed 
-                          ? t('✋ Pan Mode — Drag to move view', '✋ 팬 모드 — 드래그하여 화면 이동') 
-                          : editMode 
-                            ? t('🟢 Editing — Click points or Ctrl+Drag box', '🟢 편집 모드 — 점 클릭 또는 Ctrl+드래그') 
+                        {isSpacePressed
+                          ? t('✋ Pan Mode — Drag to move view', '✋ 팬 모드 — 드래그하여 화면 이동')
+                          : editMode
+                            ? t('🟢 Editing — Click points or Ctrl+Drag box', '🟢 편집 모드 — 점 클릭 또는 Ctrl+드래그')
                             : t('Double-click to edit points | Space + Drag to Pan | Scroll to Zoom', '더블 클릭하여 점 편집 | Space + 드래그로 이동 | 휠 스크롤로 확대축소')}
                       </span>
                     )}
                     {step === 'adjust' && (
                       <div className="flex flex-col items-center">
-                        <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-3 py-1 rounded-full mb-1 border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]">
+                        <span className={`text-[10px] font-black text-teal-500 uppercase tracking-widest bg-teal-500/10 px-3 py-1 rounded-full mb-1 border border-teal-500/20 shadow-[0_0_15px_${accentRgba(0.1)}]`}>
                           {t('Green Area = Extracted Walls', '녹색 영역 = 추출된 벽체 영역')}
                         </span>
                         <span className="text-[10px] font-black text-white/20 uppercase tracking-widest mt-1">
@@ -1739,7 +1731,7 @@ ${pathsSvg}
                     )}
                   </div>
 
-                  <div 
+                  <div
                     className="flex-1 overflow-hidden bg-[#111] flex items-center justify-center p-4 relative"
                     style={{ cursor: isSpacePressed ? (isPanning ? 'grabbing' : 'grab') : 'default' }}
                     onDoubleClick={() => { if (step === 'edit') setEditMode(!editMode); }}
@@ -1768,10 +1760,10 @@ ${pathsSvg}
                         svg { pointer-events: none; }
                       `}</style>
                     )}
-                    <div style={{ 
-                      transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, 
-                      transformOrigin: '0 0', 
-                      transition: draggingPoint || isPanning || selectionBox ? 'none' : 'transform 0.1s' 
+                    <div style={{
+                      transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                      transformOrigin: '0 0',
+                      transition: draggingPoint || isPanning || selectionBox ? 'none' : 'transform 0.1s'
                     }}>
                       {/* Hidden canvas for color adjustments */}
                       <canvas ref={adjustCanvasRef} className="hidden" />
@@ -1798,11 +1790,11 @@ ${pathsSvg}
                         >
                           <defs>
                             <pattern id="smallGrid" width="1" height="1" patternUnits="userSpaceOnUse">
-                              <path d="M 1 0 L 0 0 0 1" fill="none" stroke="rgba(0,0,0,0.15)" strokeWidth={1/zoom} />
+                              <path d="M 1 0 L 0 0 0 1" fill="none" stroke="rgba(0,0,0,0.15)" strokeWidth={1 / zoom} />
                             </pattern>
                             <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
                               <rect width="10" height="10" fill="url(#smallGrid)" />
-                              <path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(0,0,0,0.35)" strokeWidth={2/zoom} />
+                              <path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(0,0,0,0.35)" strokeWidth={2 / zoom} />
                             </pattern>
                           </defs>
                           {showBgInEdit && sourceImage && (
@@ -1831,9 +1823,9 @@ ${pathsSvg}
                           {/* Snap Guides - Infinite looking lines */}
                           {snapGuides.map((g, i) => (
                             <line key={i} x1={g.x1} y1={g.y1} x2={g.x2} y2={g.y2}
-                              stroke={g.isPerfect ? '#2dd4bf' : (g.isPerp ? '#4ade80' : '#0ea5e9')} 
-                              strokeWidth={(g.isPerfect ? 2 : 1.5) / zoom} 
-                              strokeDasharray={g.isPerfect ? 'none' : '6 4'} 
+                              stroke={g.isPerfect ? ACCENT_400 : (g.isPerp ? '#4ade80' : '#0ea5e9')}
+                              strokeWidth={(g.isPerfect ? 2 : 1.5) / zoom}
+                              strokeDasharray={g.isPerfect ? 'none' : '6 4'}
                               opacity={1.0}
                             />
                           ))}
@@ -1843,7 +1835,7 @@ ${pathsSvg}
                             <rect
                               x={perpPoint.x - 4 / zoom} y={perpPoint.y - 4 / zoom}
                               width={8 / zoom} height={8 / zoom}
-                              fill="none" stroke="#10b981" strokeWidth={1 / zoom}
+                              fill="none" stroke={ACCENT_400} strokeWidth={1 / zoom}
                             />
                           )}
 
@@ -1851,7 +1843,7 @@ ${pathsSvg}
                           {snapCircle && (
                             <circle
                               cx={snapCircle.x} cy={snapCircle.y} r={snapCircle.r}
-                              fill="none" stroke="#10b981" strokeWidth={0.5 / zoom} strokeDasharray="2 2" opacity={0.3}
+                              fill="none" stroke={ACCENT_400} strokeWidth={0.5 / zoom} strokeDasharray="2 2" opacity={0.3}
                             />
                           )}
 
@@ -1862,10 +1854,10 @@ ${pathsSvg}
                             const prev = pts[prevIdx];
                             return (
                               <g key={`bezier-${s}-${i}`}>
-                                <line x1={prev.x} y1={prev.y} x2={pt.bezier.cx1} y2={pt.bezier.cy1} stroke="#facc15" strokeWidth={1.5/zoom} strokeOpacity={0.8} strokeDasharray="3 3" />
-                                <line x1={pt.x} y1={pt.y} x2={pt.bezier.cx2} y2={pt.bezier.cy2} stroke="#facc15" strokeWidth={1.5/zoom} strokeOpacity={0.8} strokeDasharray="3 3" />
-                                <circle cx={pt.bezier.cx1} cy={pt.bezier.cy1} r={4.5/zoom} fill={selectedPoints.has(`${s}-${i}-c1`) ? "#10b981" : "#facc15"} className="cursor-move" />
-                                <circle cx={pt.bezier.cx2} cy={pt.bezier.cy2} r={4.5/zoom} fill={selectedPoints.has(`${s}-${i}-c2`) ? "#10b981" : "#facc15"} className="cursor-move" />
+                                <line x1={prev.x} y1={prev.y} x2={pt.bezier.cx1} y2={pt.bezier.cy1} stroke="#facc15" strokeWidth={1.5 / zoom} strokeOpacity={0.8} strokeDasharray="3 3" />
+                                <line x1={pt.x} y1={pt.y} x2={pt.bezier.cx2} y2={pt.bezier.cy2} stroke="#facc15" strokeWidth={1.5 / zoom} strokeOpacity={0.8} strokeDasharray="3 3" />
+                                <circle cx={pt.bezier.cx1} cy={pt.bezier.cy1} r={4.5 / zoom} fill={selectedPoints.has(`${s}-${i}-c1`) ? ACCENT_400 : "#facc15"} className="cursor-move" />
+                                <circle cx={pt.bezier.cx2} cy={pt.bezier.cy2} r={4.5 / zoom} fill={selectedPoints.has(`${s}-${i}-c2`) ? ACCENT_400 : "#facc15"} className="cursor-move" />
                               </g>
                             );
                           }))}
@@ -1877,40 +1869,40 @@ ${pathsSvg}
                               y={Math.min(selectionBox.y1, selectionBox.y2)}
                               width={Math.abs(selectionBox.x2 - selectionBox.x1)}
                               height={Math.abs(selectionBox.y2 - selectionBox.y1)}
-                              fill="rgba(16,185,129,0.1)"
-                              stroke="#10b981"
+                              fill={accentRgba(0.1)}
+                              stroke={ACCENT_400}
                               strokeWidth={1 / zoom}
                               strokeDasharray="4 4"
                             />
                           )}
 
                           {/* Selection & Point editing */}
-                          {svgPaths.map((path) => 
-                            (path.id === selectedPathId && path.visible !== false && !path.locked) 
-                            ? path.subPaths.map((points, s) => (
-                            <g key={`${path.id}-${s}`}>
-                              {/* Invisible hit area for the entire chunk */}
-                              <path
-                                d={pathToSvgD(points, true)}
-                                fill="none"
-                                stroke={selectedPathId === path.id ? 'transparent' : 'transparent'}
-                                strokeWidth={8 / zoom}
-                                onClick={(e) => { e.stopPropagation(); setSelectedPathId(path.id); if (!e.ctrlKey && !e.metaKey) setSelectedPoints(new Set()); }}
-                                style={{ cursor: 'pointer' }}
-                              />
-                              {editMode && selectedPathId === path.id && points.map((pt, i) => {
-                                const key = `${s}-${i}`;
-                                return (
-                                  <circle key={i} cx={pt.x} cy={pt.y} r={4 / zoom}
-                                    fill={selectedPoints.has(key) || highlightedPoints.has(key) ? '#10b981' : '#fff'}
-                                    stroke={selectedPoints.has(key) || highlightedPoints.has(key) ? '#10b981' : '#333'}
-                                    strokeWidth={1.5 / zoom}
-                                    style={{ cursor: 'move' }}
+                          {svgPaths.map((path) =>
+                            (path.id === selectedPathId && path.visible !== false && !path.locked)
+                              ? path.subPaths.map((points, s) => (
+                                <g key={`${path.id}-${s}`}>
+                                  {/* Invisible hit area for the entire chunk */}
+                                  <path
+                                    d={pathToSvgD(points, true)}
+                                    fill="none"
+                                    stroke={selectedPathId === path.id ? 'transparent' : 'transparent'}
+                                    strokeWidth={8 / zoom}
+                                    onClick={(e) => { e.stopPropagation(); setSelectedPathId(path.id); if (!e.ctrlKey && !e.metaKey) setSelectedPoints(new Set()); }}
+                                    style={{ cursor: 'pointer' }}
                                   />
-                                );
-                              })}
-                            </g>
-                          )) : null)}
+                                  {editMode && selectedPathId === path.id && points.map((pt, i) => {
+                                    const key = `${s}-${i}`;
+                                    return (
+                                      <circle key={i} cx={pt.x} cy={pt.y} r={4 / zoom}
+                                        fill={selectedPoints.has(key) || highlightedPoints.has(key) ? ACCENT_400 : '#fff'}
+                                        stroke={selectedPoints.has(key) || highlightedPoints.has(key) ? ACCENT_400 : '#333'}
+                                        strokeWidth={1.5 / zoom}
+                                        style={{ cursor: 'move' }}
+                                      />
+                                    );
+                                  })}
+                                </g>
+                              )) : null)}
 
                           {/* Segment Hover Add Node Guide */}
                           {editMode && addNodeGuide && !draggingPoint && !isPanning && (
