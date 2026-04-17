@@ -45,7 +45,8 @@ const initialState: AppState = {
   gridColor: '#ffffff',
   showBackgroundColor: false,
   backgroundColor: '#ffffff',
-  language: 'en'
+  language: 'en',
+  contactShadows: false
 };
 
 const expandSelectionWithGroups = (ids: string[], items: FurnitureItem[]): string[] => {

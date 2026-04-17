@@ -679,6 +679,7 @@ function LightWithHelper({
   realtimeShadows
 }: {
   config: any;
+  showGizmos: boolean;
   isSelected: boolean;
   onUpdateLight: (id: string, updates: Partial<any>, undoable?: boolean) => void;
   onSelectLight: (id: string, multi?: boolean) => void;
@@ -1127,35 +1128,12 @@ export const Scene = forwardRef<any, SceneProps>(({
         }}
         dpr={[1, 2]}
         raycaster={{
-          filter: (intersects) => {
-            const gizmos = [];
-            const others = [];
-            for (const hit of intersects) {
-              // Check if object or any parent is locked
-              let isLocked = false;
-              let cur: any = hit.object;
-              while (cur) {
-                if (cur.userData?.locked) {
-                  isLocked = true;
-                  break;
-                }
-                cur = cur.parent;
-              }
-              if (isLocked) continue;
-
-              let curGizmo = hit.object;
-              let isGizmo = false;
-              while (curGizmo) {
-                if ((curGizmo as any).userData?.pivot || (curGizmo as any).userData?.hover || (curGizmo.name && curGizmo.name.toLowerCase().includes('pivot'))) {
-                  isGizmo = true;
-                  break;
-                }
-                curGizmo = curGizmo.parent!;
-              }
-              if (isGizmo) gizmos.push(hit);
-              else others.push(hit);
-            }
-            return [...gizmos, ...others];
+          params: {
+            Line: { threshold: 0.1 },
+            Points: { threshold: 0.1 },
+            Mesh: {},
+            LOD: {},
+            Sprite: {}
           }
         }}
         onPointerMissed={(e) => {
@@ -1291,7 +1269,7 @@ export const Scene = forwardRef<any, SceneProps>(({
 
         </GizmoHelper>
 
-        <EffectComposer disableNormalPass>
+        <EffectComposer>
           <Bloom
             luminanceThreshold={1}
             intensity={state.bloomIntensity ?? 0.05}

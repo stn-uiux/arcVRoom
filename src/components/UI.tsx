@@ -62,7 +62,7 @@ import { ACCENT_400, accentRgba } from '../theme';
 
 interface UIProps {
   state: AppState;
-  onAddItem: (type: FurnitureType, url?: string) => void;
+  onAddItem: (type: FurnitureType, url?: string, name?: string) => void;
   onDeleteItem: () => void;
   onUpdateItem: (id: string, updates: Partial<FurnitureItem>, undoable?: boolean) => void;
   onUpdateItems: (updatesMap: { [id: string]: Partial<FurnitureItem> }, undoable?: boolean) => void;
@@ -74,7 +74,7 @@ interface UIProps {
   onUpdateState: (updates: Partial<AppState>) => void;
   onFitToSelection: () => void;
   onSvgUpload?: (files: File[]) => void;
-  onExport: () => void;
+  onExport: (mode: 'all' | 'objects' | 'lights' | 'json') => void;
   onImport: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -93,6 +93,7 @@ interface UIProps {
   zoomRef: React.RefObject<HTMLDivElement>;
   panRef: React.RefObject<HTMLDivElement>;
   onSelect: (id: string | null, multi?: boolean, isGroupSelect?: boolean) => void;
+  language?: 'en' | 'ko';
 }
 
 export const UI: React.FC<UIProps> = ({
@@ -127,7 +128,8 @@ export const UI: React.FC<UIProps> = ({
   staticTextures,
   zoomRef,
   panRef,
-  onSelect
+  onSelect,
+  language = 'en'
 }) => {
   const [activeTab, setActiveTab] = useState<'objects' | 'lights' | 'materials' | 'settings'>('objects');
   const [showFloorplanModal, setShowFloorplanModal] = useState(false);
@@ -139,7 +141,7 @@ export const UI: React.FC<UIProps> = ({
   const internalUIActionRef = useRef(false);
   const lastSelectedIndexRef = useRef<number | null>(null);
 
-  const t = (en: string, ko: string) => state.language === 'ko' ? ko : en;
+  const t = (en: string, ko: string) => (language === 'ko' ? ko : en);
 
   const EditableNumber: React.FC<{ value: number, onChange: (val: number) => void, precision?: number }> = ({ value, onChange, precision = 1 }) => {
     const [isEditing, setIsEditing] = useState(false);
@@ -317,13 +319,13 @@ export const UI: React.FC<UIProps> = ({
           <div className="flex bg-black/40 backdrop-blur-xl border border-white/10 rounded-full p-1 shadow-2xl">
             <button
               onClick={() => onUpdateState({ language: 'ko' })}
-              className={`px-3 py-1 rounded-full text-[10px] font-black uppercase transition-all ${state.language === 'ko' ? `bg-teal-500 text-black shadow-[0_0_15px_${accentRgba(0.3)}]` : 'text-white/40 hover:text-white/70'}`}
+              className={`px-3 py-1 rounded-full text-[10px] font-black uppercase transition-all ${language === 'ko' ? `bg-teal-500 text-black shadow-[0_0_15px_${accentRgba(0.3)}]` : 'text-white/40 hover:text-white/70'}`}
             >
               KO
             </button>
             <button
               onClick={() => onUpdateState({ language: 'en' })}
-              className={`px-3 py-1 rounded-full text-[10px] font-black uppercase transition-all ${state.language === 'en' ? `bg-teal-500 text-black shadow-[0_0_15px_${accentRgba(0.3)}]` : 'text-white/40 hover:text-white/70'}`}
+              className={`px-3 py-1 rounded-full text-[10px] font-black uppercase transition-all ${language === 'en' ? `bg-teal-500 text-black shadow-[0_0_15px_${accentRgba(0.3)}]` : 'text-white/40 hover:text-white/70'}`}
             >
               EN
             </button>

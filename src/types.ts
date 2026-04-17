@@ -144,4 +144,5 @@ export interface AppState {
   showBackgroundColor: boolean;
   backgroundColor: string;
   language?: 'en' | 'ko';
+  contactShadows?: boolean;
 }

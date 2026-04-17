@@ -6,6 +6,7 @@ import { accentRgba } from '../theme';
 
 interface MaterialsLibraryProps {
   onAddTexture: (tex: TextureConfig) => void;
+  language?: 'en' | 'ko';
 }
 
 /**

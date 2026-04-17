@@ -656,7 +656,7 @@ export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose,
       // 1. Calculate scaling
       const w = sourceImage.naturalWidth;
       const h = sourceImage.naturalHeight;
-      const scale = svgWidth / w;
+      const scale = 1.0; 
       const scaledH = Math.round(h * scale);
 
       // 2. Build combined Path 'd' attribute for even-odd filling
