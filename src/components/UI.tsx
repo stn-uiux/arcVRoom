@@ -1947,6 +1947,7 @@ export const UI: React.FC<UIProps> = ({
           }
         }}
         language={state.language}
+        onLanguageChange={(lang) => onUpdateState({ language: lang })}
       />
     </>
   );

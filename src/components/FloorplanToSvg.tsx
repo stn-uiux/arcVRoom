@@ -1,17 +1,27 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import paper from 'paper';
 import {
   X, Upload, Download, ZoomIn, ZoomOut, Undo2,
-  Contrast, Palette, SlidersHorizontal, RefreshCw, Pencil, Trash2, Eye, EyeOff, Spline, Grid, Lock, Unlock, ChevronUp, ChevronDown
+  Contrast, Palette, SlidersHorizontal, RefreshCw, Pencil, Trash2, Eye, EyeOff, Spline, Grid, Lock, Unlock, ChevronUp, ChevronDown, Square, MousePointer, Copy
 } from 'lucide-react';
 import { ACCENT_400, accentRgba } from '../theme';
+
+const BooleanIcon = ({ type }: { type: 'union' | 'subtract' | 'intersect' | 'exclude' }) => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+    {type === 'union' && <path d="M6 6h8v4h4v8H10v-4H6z" fill="currentColor" />}
+    {type === 'subtract' && <><path d="M6 6h8v8H6z" fill="currentColor" /><path d="M10 10h8v8h-8z" stroke="currentColor" /></>}
+    {type === 'intersect' && <><path d="M6 6h8v8H6z" stroke="currentColor" /><path d="M10 10h8v8h-8z" stroke="currentColor" /><path d="M10 10h4v4h-4z" fill="currentColor" /></>}
+    {type === 'exclude' && <><path d="M6 6h8v8H6z" stroke="currentColor" /><path d="M10 10h8v8h-8z" stroke="currentColor" /><path d="M6 6h8v4h-4v4H6z" fill="currentColor" /><path d="M14 14h4v4h-8v-4h4z" fill="currentColor" /></>}
+  </svg>
+);
 
 // ──────────────────────────────────────────────
 // Types
 // ──────────────────────────────────────────────
 interface BezierHandle { cx1: number; cy1: number; cx2: number; cy2: number; }
 interface Point { x: number; y: number; bezier?: BezierHandle; }
-interface SvgPath { id: string; subPaths: Point[][]; closed: boolean; locked?: boolean; visible?: boolean; color?: string; opacity?: number; }
+interface SvgPath { id: string; name?: string; subPaths: Point[][]; closed: boolean; locked?: boolean; visible?: boolean; color?: string; opacity?: number; }
 
 interface ImageAdjustments {
   brightness: number;
@@ -432,6 +442,109 @@ function pathToSvgD(points: Point[], closed: boolean): string {
   return d;
 }
 
+// Parse SVG path 'd' attribute into Point[] arrays (subPaths)
+function parseSvgPathD(d: string): { subPaths: Point[][]; closed: boolean } {
+  const subPaths: Point[][] = [];
+  let currentPath: Point[] = [];
+  let closed = false;
+  let cx = 0, cy = 0; // current position
+
+  // Tokenize: split into commands + coordinates
+  const tokens = d.match(/[MmLlCcSsQqTtAaHhVvZz]|[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/g);
+  if (!tokens) return { subPaths: [[]], closed: false };
+
+  let i = 0;
+  const num = () => parseFloat(tokens[i++]);
+
+  while (i < tokens.length) {
+    const cmd = tokens[i++];
+    switch (cmd) {
+      case 'M':
+        if (currentPath.length > 0) subPaths.push(currentPath);
+        currentPath = [];
+        cx = num(); cy = num();
+        currentPath.push({ x: cx, y: cy });
+        // Implicit lineto after M
+        while (i < tokens.length && !isNaN(parseFloat(tokens[i]))) {
+          cx = num(); cy = num();
+          currentPath.push({ x: cx, y: cy });
+        }
+        break;
+      case 'm': {
+        if (currentPath.length > 0) subPaths.push(currentPath);
+        currentPath = [];
+        cx += num(); cy += num();
+        currentPath.push({ x: cx, y: cy });
+        while (i < tokens.length && !isNaN(parseFloat(tokens[i]))) {
+          cx += num(); cy += num();
+          currentPath.push({ x: cx, y: cy });
+        }
+        break;
+      }
+      case 'L':
+        while (i < tokens.length && !isNaN(parseFloat(tokens[i]))) {
+          cx = num(); cy = num();
+          currentPath.push({ x: cx, y: cy });
+        }
+        break;
+      case 'l':
+        while (i < tokens.length && !isNaN(parseFloat(tokens[i]))) {
+          cx += num(); cy += num();
+          currentPath.push({ x: cx, y: cy });
+        }
+        break;
+      case 'H':
+        while (i < tokens.length && !isNaN(parseFloat(tokens[i]))) {
+          cx = num();
+          currentPath.push({ x: cx, y: cy });
+        }
+        break;
+      case 'h':
+        while (i < tokens.length && !isNaN(parseFloat(tokens[i]))) {
+          cx += num();
+          currentPath.push({ x: cx, y: cy });
+        }
+        break;
+      case 'V':
+        while (i < tokens.length && !isNaN(parseFloat(tokens[i]))) {
+          cy = num();
+          currentPath.push({ x: cx, y: cy });
+        }
+        break;
+      case 'v':
+        while (i < tokens.length && !isNaN(parseFloat(tokens[i]))) {
+          cy += num();
+          currentPath.push({ x: cx, y: cy });
+        }
+        break;
+      case 'C':
+        while (i < tokens.length && !isNaN(parseFloat(tokens[i]))) {
+          const cx1 = num(), cy1 = num(), cx2 = num(), cy2 = num();
+          cx = num(); cy = num();
+          currentPath.push({ x: cx, y: cy, bezier: { cx1, cy1, cx2, cy2 } });
+        }
+        break;
+      case 'c':
+        while (i < tokens.length && !isNaN(parseFloat(tokens[i]))) {
+          const cx1 = cx + num(), cy1 = cy + num(), cx2 = cx + num(), cy2 = cy + num();
+          cx += num(); cy += num();
+          currentPath.push({ x: cx, y: cy, bezier: { cx1, cy1, cx2, cy2 } });
+        }
+        break;
+      case 'Z':
+      case 'z':
+        closed = true;
+        break;
+      default:
+        // Skip unsupported commands (S, Q, T, A) - consume their parameters
+        while (i < tokens.length && !isNaN(parseFloat(tokens[i]))) { i++; }
+        break;
+    }
+  }
+  if (currentPath.length > 0) subPaths.push(currentPath);
+  return { subPaths: subPaths.length > 0 ? subPaths : [[]], closed };
+}
+
 function convexHull(points: Point[]): Point[] {
   if (points.length <= 3) return points;
   const sorted = [...points].sort((a, b) => a.x !== b.x ? a.x - b.x : a.y - b.y);
@@ -461,11 +574,12 @@ interface FloorplanToSvgProps {
   onClose: () => void;
   onApply?: (svgData: string) => void;
   language?: 'en' | 'ko';
+  onLanguageChange?: (lang: 'en' | 'ko') => void;
 }
 
 type ActivePanel = 'levels' | 'curves' | 'huesat' | null;
 
-export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose, onApply, language = 'en' }) => {
+export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose, onApply, language = 'en', onLanguageChange }) => {
   const t = (en: string, ko: string) => (language === 'ko' ? ko : en);
   const [sourceImage, setSourceImage] = useState<HTMLImageElement | null>(null);
   const [adj, setAdj] = useState<ImageAdjustments>(DEFAULT_ADJ);
@@ -476,6 +590,7 @@ export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose,
   const [activePanel, setActivePanel] = useState<ActivePanel>(null);
   const [editMode, setEditMode] = useState(false);
   const [selectedPathId, setSelectedPathId] = useState<string | null>(null);
+  const [selectedPathIds, setSelectedPathIds] = useState<Set<string>>(new Set());
   const [selectedPoints, setSelectedPoints] = useState<Set<string>>(new Set()); // "subIdx-ptIdx"
   const [highlightedPoints, setHighlightedPoints] = useState<Set<string>>(new Set());
   const [draggingPoint, setDraggingPoint] = useState(false);
@@ -488,18 +603,28 @@ export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose,
   const [addNodeGuide, setAddNodeGuide] = useState<{ s: number, i: number, pt: Point } | null>(null);
   const [isSpacePressed, setIsSpacePressed] = useState(false);
   const dragStartRef = useRef<Point | null>(null);
+  const dragInitialPosRef = useRef<Point | null>(null);
+  const shiftAxisRef = useRef<'h' | 'v' | null>(null);
   const panStartRef = useRef<Point | null>(null);
-  const [svgWidth, setSvgWidth] = useState<number | string>(1000);
+  const [canvasSize, setCanvasSize] = useState({ width: 1000, height: 1000 });
+  const [draggingLayer, setDraggingLayer] = useState<string | null>(null);
+  const [resizingLayer, setResizingLayer] = useState<{ pathId: string, handle: string } | null>(null);
+  const dragInitialBoundsRef = useRef<{ x: number, y: number, w: number, h: number } | null>(null);
+  const dragInitialPathsRef = useRef<SvgPath[] | null>(null);
   const [zoom, setZoom] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
   const [showOverlay, setShowOverlay] = useState(true);
   const [showBgInEdit, setShowBgInEdit] = useState(true);
   const [enablePixelSnap, setEnablePixelSnap] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [drawTool, setDrawTool] = useState<'select' | 'rect'>('select');
+  const [rectDraw, setRectDraw] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+  const [editingLayerId, setEditingLayerId] = useState<string | null>(null);
 
   const adjustCanvasRef = useRef<HTMLCanvasElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const processTimerRef = useRef<number>(0);
+  const ignoreClickRef = useRef<boolean>(false);
 
   // History System Refs
   const historyRef = useRef<{ past: SvgPath[][], future: SvgPath[][] }>({ past: [], future: [] });
@@ -536,6 +661,150 @@ export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose,
       setSelectedPoints(new Set());
     }
   }, []);
+
+  const handleResizeCanvas = useCallback((newWidth: number) => {
+    if (newWidth <= 0 || newWidth === canvasSize.width) return;
+    const scale = newWidth / canvasSize.width;
+    const newHeight = canvasSize.height * scale;
+    setCanvasSize({ width: newWidth, height: newHeight });
+    
+    setSvgPaths(prev => {
+      const np = prev.map(p => ({
+        ...p,
+        subPaths: p.subPaths.map(pts => pts.map(pt => ({
+          x: pt.x * scale,
+          y: pt.y * scale,
+          bezier: pt.bezier ? {
+            cx1: pt.bezier.cx1 * scale,
+            cy1: pt.bezier.cy1 * scale,
+            cx2: pt.bezier.cx2 * scale,
+            cy2: pt.bezier.cy2 * scale
+          } : undefined
+        })))
+      }));
+      commitChange(np);
+      latestPathsRef.current = np;
+      return np;
+    });
+  }, [canvasSize, commitChange]);
+
+  const getSelectionBounds = useCallback(() => {
+    if (selectedPathIds.size === 0) return null;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    selectedPathIds.forEach(pathId => {
+      const path = svgPaths.find(p => p.id === pathId);
+      if (!path || path.subPaths.length === 0) return;
+      path.subPaths.forEach(pts => pts.forEach(p => {
+        if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+      }));
+    });
+    if (minX === Infinity) return null;
+    return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+  }, [selectedPathIds, svgPaths]);
+
+  const applyPathTransform = useCallback((pathId: string, newX: number, newY: number, newW: number, newH: number) => {
+    setSvgPaths(prev => {
+      const path = prev.find(p => p.id === pathId);
+      if (!path) return prev;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      path.subPaths.forEach(pts => pts.forEach(p => {
+        if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+      }));
+      if (minX === Infinity) return prev;
+      const oldW = maxX - minX;
+      const oldH = maxY - minY;
+      if (oldW === 0 || oldH === 0) return prev;
+      
+      const scaleX = newW / oldW;
+      const scaleY = newH / oldH;
+      const dx = newX - minX;
+      const dy = newY - minY;
+
+      const np = prev.map(p => {
+        if (p.id !== pathId) return p;
+        return {
+          ...p,
+          subPaths: p.subPaths.map(pts => pts.map(pt => ({
+            x: (pt.x - minX) * scaleX + minX + dx,
+            y: (pt.y - minY) * scaleY + minY + dy,
+            bezier: pt.bezier ? {
+              cx1: (pt.bezier.cx1 - minX) * scaleX + minX + dx,
+              cy1: (pt.bezier.cy1 - minY) * scaleY + minY + dy,
+              cx2: (pt.bezier.cx2 - minX) * scaleX + minX + dx,
+              cy2: (pt.bezier.cy2 - minY) * scaleY + minY + dy,
+            } : undefined
+          })))
+        };
+      });
+      latestPathsRef.current = np;
+      commitChange(np);
+      return np;
+    });
+  }, [commitChange]);
+
+  const handleBooleanOp = useCallback((op: 'union' | 'subtract' | 'intersect' | 'exclude') => {
+    if (selectedPathIds.size !== 2) return;
+    const ids = Array.from(selectedPathIds);
+    // Determine order: base is the visually bottom layer (larger index in our reverse logic)
+    const p1Idx = svgPaths.findIndex(p => p.id === ids[0]);
+    const p2Idx = svgPaths.findIndex(p => p.id === ids[1]);
+    const baseIdx = Math.max(p1Idx, p2Idx);
+    const topIdx = Math.min(p1Idx, p2Idx);
+    
+    const p1 = svgPaths[baseIdx];
+    const p2 = svgPaths[topIdx];
+    if (!p1 || !p2) return;
+
+    paper.setup(new paper.Size(1000, 1000));
+    
+    const d1 = p1.subPaths.map(points => pathToSvgD(points, p1.closed)).join(' ');
+    const d2 = p2.subPaths.map(points => pathToSvgD(points, p2.closed)).join(' ');
+
+    const path1 = new paper.CompoundPath(d1);
+    const path2 = new paper.CompoundPath(d2);
+
+    let result: paper.PathItem;
+    if (op === 'union') result = path1.unite(path2);
+    else if (op === 'subtract') result = path1.subtract(path2);
+    else if (op === 'intersect') result = path1.intersect(path2);
+    else result = path1.exclude(path2);
+
+    const newD = result.pathData;
+    const { subPaths, closed } = parseSvgPathD(newD);
+
+    if (subPaths.length === 0 || subPaths.every(sp => sp.length === 0)) {
+      alert(t('Resulting shape is empty.', '연산 결과 도형이 없습니다.'));
+      return;
+    }
+
+    const newPathId = `bool-${Date.now()}`;
+    const newPath: SvgPath = {
+      id: newPathId,
+      name: `${op.charAt(0).toUpperCase() + op.slice(1)} Result`,
+      subPaths,
+      closed,
+      color: p1.color,
+      opacity: p1.opacity
+    };
+
+    setSvgPaths(prev => {
+      const nextPaths = prev.map(p => {
+        if (p.id === p1.id) return newPath; // Replace base with result
+        if (p.id === p2.id) return null;    // Remove top
+        return p;
+      }).filter(Boolean) as SvgPath[];
+      
+      latestPathsRef.current = nextPaths;
+      commitChange(nextPaths);
+      return nextPaths;
+    });
+
+    setSelectedPathIds(new Set([newPathId]));
+    setSelectedPathId(newPathId);
+
+  }, [selectedPathIds, svgPaths, commitChange, t]);
 
   // Apply color adjustments
   useEffect(() => {
@@ -576,10 +845,125 @@ export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose,
   const handleFile = useCallback((file: File) => {
     const name = file.name.toLowerCase();
     const extension = name.split('.').pop() || '';
-    const supported = ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif'];
 
+    // SVG file → parse and jump to edit step directly
+    if (extension === 'svg') {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const svgText = e.target?.result as string;
+        try {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(svgText, 'image/svg+xml');
+          const svgEl = doc.querySelector('svg');
+          if (!svgEl) { alert('유효한 SVG 파일이 아닙니다.'); return; }
+
+          // Get SVG dimensions for sourceImage placeholder
+          const vb = svgEl.getAttribute('viewBox')?.split(/[\s,]+/).map(Number);
+          const svgW = vb ? vb[2] : parseFloat(svgEl.getAttribute('width') || '1000');
+          const svgH = vb ? vb[3] : parseFloat(svgEl.getAttribute('height') || '1000');
+
+          // Create a blank placeholder image with the SVG dimensions
+          const canvas = document.createElement('canvas');
+          canvas.width = svgW; canvas.height = svgH;
+          const ctx = canvas.getContext('2d')!;
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, svgW, svgH);
+          const img = new Image();
+          img.onload = () => {
+            setSourceImage(img);
+            setCanvasSize({ width: svgW, height: svgH });
+
+            // Parse all <path> elements into SvgPath layers
+            const pathEls = doc.querySelectorAll('path');
+            const parsed: SvgPath[] = [];
+            pathEls.forEach((pathEl, idx) => {
+              const d = pathEl.getAttribute('d');
+              if (!d) return;
+              const { subPaths, closed } = parseSvgPathD(d);
+              if (subPaths.length === 0 || subPaths.every(sp => sp.length === 0)) return;
+              const pathId = pathEl.getAttribute('id') || `path-${idx}`;
+              const fill = pathEl.getAttribute('fill') || '#333333';
+              const fillOpacity = parseFloat(pathEl.getAttribute('fill-opacity') || '1');
+              parsed.push({
+                id: pathId,
+                name: pathId,
+                subPaths,
+                closed,
+                color: fill === 'none' ? '#333333' : fill,
+                opacity: fillOpacity,
+              });
+            });
+
+            // Also parse <rect>, <circle>, <ellipse>, <polygon>, <polyline>
+            const rectEls = doc.querySelectorAll('rect');
+            rectEls.forEach((el, idx) => {
+              const x = parseFloat(el.getAttribute('x') || '0');
+              const y = parseFloat(el.getAttribute('y') || '0');
+              const w = parseFloat(el.getAttribute('width') || '0');
+              const h = parseFloat(el.getAttribute('height') || '0');
+              if (w <= 0 || h <= 0) return;
+              const rectId = el.getAttribute('id') || `rect-${idx}`;
+              parsed.push({
+                id: rectId, name: rectId,
+                subPaths: [[{ x, y }, { x: x + w, y }, { x: x + w, y: y + h }, { x, y: y + h }]],
+                closed: true,
+                color: el.getAttribute('fill') || '#333333',
+                opacity: parseFloat(el.getAttribute('fill-opacity') || el.getAttribute('opacity') || '1'),
+              });
+            });
+
+            const polygonEls = doc.querySelectorAll('polygon, polyline');
+            polygonEls.forEach((el, idx) => {
+              const pointsAttr = el.getAttribute('points');
+              if (!pointsAttr) return;
+              const nums = pointsAttr.trim().split(/[\s,]+/).map(Number);
+              const pts: Point[] = [];
+              for (let j = 0; j < nums.length - 1; j += 2) {
+                pts.push({ x: nums[j], y: nums[j + 1] });
+              }
+              if (pts.length < 2) return;
+              const polyId = el.getAttribute('id') || `poly-${idx}`;
+              parsed.push({
+                id: polyId, name: polyId,
+                subPaths: [pts],
+                closed: el.tagName.toLowerCase() === 'polygon',
+                color: el.getAttribute('fill') || '#333333',
+                opacity: parseFloat(el.getAttribute('fill-opacity') || '1'),
+              });
+            });
+
+            if (parsed.length === 0) {
+              alert('SVG 파일에 편집 가능한 경로가 없습니다.');
+              return;
+            }
+
+            // Reverse to make the last SVG element (top layer visually) appear at the top of our layer list (index 0)
+            parsed.reverse();
+
+            setSvgPaths(parsed);
+            const copy = JSON.parse(JSON.stringify(parsed));
+            lastSavedPathsRef.current = copy;
+            latestPathsRef.current = copy;
+            historyRef.current = { past: [], future: [] };
+            setSelectedPathId(parsed[0].id);
+            setSelectedPathIds(new Set([parsed[0].id]));
+            setStep('edit');
+            setEditMode(false);
+          };
+          img.src = canvas.toDataURL();
+        } catch (err) {
+          console.error('SVG parsing failed:', err);
+          alert('SVG 파일을 파싱하는 데 실패했습니다.');
+        }
+      };
+      reader.readAsText(file);
+      return;
+    }
+
+    // Raster image file
+    const supported = ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif'];
     if (!supported.includes(extension)) {
-      alert(`지원하지 않는 이미지 형식입니다: .${extension}\n(PNG, JPG, WEBP 등의 이미지 파일만 업로드 가능합니다.)`);
+      alert(`지원하지 않는 파일 형식입니다: .${extension}\n(PNG, JPG, WEBP, SVG 등의 파일만 업로드 가능합니다.)`);
       return;
     }
 
@@ -588,6 +972,7 @@ export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose,
       const img = new Image();
       img.onload = () => {
         setSourceImage(img);
+        setCanvasSize({ width: img.naturalWidth, height: img.naturalHeight });
         setAdj(DEFAULT_ADJ);
         setSvgPaths([]);
         setWallGrid(null);
@@ -605,12 +990,12 @@ export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose,
     setIsDragging(false);
     const file = e.dataTransfer.files[0];
     if (file) {
-      const isImage = /^image\/(png|jpe?g|gif|bmp|webp)$/i.test(file.type);
-      if (isImage) {
+      const ext = file.name.split('.').pop()?.toLowerCase() || '';
+      const isImage = /^image\/(png|jpe?g|gif|bmp|webp|svg\+xml)$/i.test(file.type);
+      if (isImage || ext === 'svg') {
         handleFile(file);
       } else {
-        const extension = file.name.split('.').pop() || 'unknown';
-        alert(`지원하지 않는 이미지 형식입니다: .${extension}\n(PNG, JPG, WEBP 등의 이미지 파일만 드래그 앤 드롭이 가능합니다.)`);
+        alert(`지원하지 않는 파일 형식입니다: .${ext}\n(PNG, JPG, WEBP, SVG 등의 파일만 드래그 앤 드롭이 가능합니다.)`);
       }
     }
   }, [handleFile]);
@@ -637,8 +1022,8 @@ export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose,
       closed: true
     };
 
-    // Floor first (so it renders under), Wall second
-    const initialPaths = [floorPath, merged];
+    // Wall first (top layer in UI), Floor second (bottom layer in UI)
+    const initialPaths = [merged, floorPath];
     setSvgPaths(initialPaths);
     const initialCopy = JSON.parse(JSON.stringify(initialPaths));
     lastSavedPathsRef.current = initialCopy;
@@ -646,6 +1031,7 @@ export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose,
     historyRef.current = { past: [], future: [] };
 
     setSelectedPathId('wall');
+    setSelectedPathIds(new Set(['wall']));
     setStep('edit');
   }, [previewPaths]);
 
@@ -653,35 +1039,22 @@ export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose,
     if (!sourceImage || svgPaths.length === 0) return;
 
     try {
-      // 1. Calculate scaling
-      const w = sourceImage.naturalWidth;
-      const h = sourceImage.naturalHeight;
-      const scale = 1.0; 
-      const scaledH = Math.round(h * scale);
+      const targetW = canvasSize.width;
+      const scaledH = canvasSize.height;
 
       // 2. Build combined Path 'd' attribute for even-odd filling
-      const pathsSvg = svgPaths.filter(p => p.visible !== false).map(path => {
-        const combinedD = path.subPaths.map(points => {
-          const scaled = points.map(pt => ({
-            x: pt.x * scale,
-            y: pt.y * scale,
-            bezier: pt.bezier ? {
-              cx1: pt.bezier.cx1 * scale,
-              cy1: pt.bezier.cy1 * scale,
-              cx2: pt.bezier.cx2 * scale,
-              cy2: pt.bezier.cy2 * scale
-            } : undefined
-          }));
-          return pathToSvgD(scaled, path.closed);
-        }).join(' ');
+      // Reverse again so that bottom layers (end of the array) are written first in the SVG file
+      const pathsSvg = [...svgPaths].reverse().filter(p => p.visible !== false).map(path => {
+        const combinedD = path.subPaths.map(points => pathToSvgD(points, path.closed)).join(' ');
         const fill = path.color || (path.id === 'floor' ? '#dddddd' : '#333333');
         const opacity = path.opacity !== undefined ? path.opacity : (path.id === 'floor' ? 0.05 : 0.85);
-        return `  <path id="${path.id}" d="${combinedD}" fill="${fill}" fill-opacity="${opacity}" fill-rule="evenodd" stroke="none" />`;
+        const layerName = path.name || path.id;
+        return `  <path id="${layerName}" d="${combinedD}" fill="${fill}" fill-opacity="${opacity}" fill-rule="evenodd" stroke="none" />`;
       }).join('\n');
 
       // 3. Build Full SVG with Headers
       const svgContent = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${scaledH}" viewBox="0 0 ${svgWidth} ${scaledH}">
+<svg xmlns="http://www.w3.org/2000/svg" width="${targetW}" height="${scaledH}" viewBox="0 0 ${targetW} ${scaledH}">
 ${pathsSvg}
 </svg>`;
 
@@ -697,7 +1070,7 @@ ${pathsSvg}
       document.body.appendChild(link);
       link.click();
 
-      // Cleanup with generous timeout
+    // Cleanup with generous timeout
       setTimeout(() => {
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
@@ -706,33 +1079,21 @@ ${pathsSvg}
       console.error('SVG Download failed:', err);
       alert('SVG 다운로드에 실패했습니다.');
     }
-  }, [sourceImage, svgPaths, svgWidth]);
+  }, [sourceImage, svgPaths, canvasSize]);
 
   const handleApplyToScene = useCallback(() => {
     if (!sourceImage || svgPaths.length === 0 || !onApply) return;
 
     try {
-      const w = sourceImage.naturalWidth;
-      const h = sourceImage.naturalHeight;
-      const scale = 1.0; // Use natural scale for scene application
+      const w = canvasSize.width;
+      const h = canvasSize.height;
 
-      const pathsSvg = svgPaths.filter(p => p.visible !== false).map(path => {
-        const combinedD = path.subPaths.map(points => {
-          const scaled = points.map(pt => ({
-            x: pt.x * scale,
-            y: pt.y * scale,
-            bezier: pt.bezier ? {
-              cx1: pt.bezier.cx1 * scale,
-              cy1: pt.bezier.cy1 * scale,
-              cx2: pt.bezier.cx2 * scale,
-              cy2: pt.bezier.cy2 * scale
-            } : undefined
-          }));
-          return pathToSvgD(scaled, path.closed);
-        }).join(' ');
+      const pathsSvg = [...svgPaths].reverse().filter(p => p.visible !== false).map(path => {
+        const combinedD = path.subPaths.map(points => pathToSvgD(points, path.closed)).join(' ');
         const fill = path.color || (path.id === 'floor' ? '#dddddd' : '#333333');
         const opacity = path.opacity !== undefined ? path.opacity : (path.id === 'floor' ? 0.05 : 0.85);
-        return `  <path id="${path.id}" d="${combinedD}" fill="${fill}" fill-opacity="${opacity}" fill-rule="evenodd" stroke="none" />`;
+        const layerName = path.name || path.id;
+        return `  <path id="${layerName}" d="${combinedD}" fill="${fill}" fill-opacity="${opacity}" fill-rule="evenodd" stroke="none" />`;
       }).join('\n');
 
       const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
@@ -747,7 +1108,15 @@ ${pathsSvg}
   }, [sourceImage, svgPaths, onApply, onClose]);
 
   const handleSvgMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
-    if (!editMode) return;
+    ignoreClickRef.current = false;
+    
+    // 1. Panning Logic (Highest Priority)
+    if (isSpacePressed || e.button === 2 || e.button === 1) {
+      setIsPanning(true);
+      panStartRef.current = { x: e.clientX, y: e.clientY };
+      return;
+    }
+
     const svg = e.currentTarget;
     const pt = svg.createSVGPoint();
     pt.x = e.clientX; pt.y = e.clientY;
@@ -758,7 +1127,25 @@ ${pathsSvg}
       svgPt.x = Math.round(svgPt.x);
       svgPt.y = Math.round(svgPt.y);
     }
+
+    // 2. Deselect in Select Mode (Background click)
+    if (!editMode && drawTool === 'select') {
+      setSelectedPathId(null);
+      setSelectedPathIds(new Set());
+      setSelectedPoints(new Set());
+    }
+
+    if (!editMode && drawTool !== 'rect') return;
     const isCtrl = e.ctrlKey || e.metaKey;
+
+    // 2. Rectangle draw tool (Priority over point editing)
+    if (drawTool === 'rect') {
+      setRectDraw({ x1: svgPt.x, y1: svgPt.y, x2: svgPt.x, y2: svgPt.y });
+      return;
+    }
+
+    // 3. Point Editing Interactions (Only allowed in editMode)
+    if (!editMode) return;
 
     const hitRadius = 10 / zoom;
     const activePathId = selectedPathId || 'wall';
@@ -786,6 +1173,8 @@ ${pathsSvg}
       setAddNodeGuide(null);
       setDraggingPoint(true);
       dragStartRef.current = { x: addNodeGuide.pt.x, y: addNodeGuide.pt.y };
+      dragInitialPosRef.current = { x: addNodeGuide.pt.x, y: addNodeGuide.pt.y };
+      shiftAxisRef.current = null;
       return;
     }
 
@@ -795,13 +1184,18 @@ ${pathsSvg}
       for (let i = 0; i < points.length; i++) {
         const p = points[i];
         if (p.bezier) {
-          if (Math.hypot(p.bezier.cx1 - svgPt.x, p.bezier.cy1 - svgPt.y) < hitRadius) {
+          const prevIdx = (i - 1 + points.length) % points.length;
+          const prev = points[prevIdx];
+          const c1Collapsed = Math.abs(p.bezier.cx1 - prev.x) < 0.5 && Math.abs(p.bezier.cy1 - prev.y) < 0.5;
+          const c2Collapsed = Math.abs(p.bezier.cx2 - p.x) < 0.5 && Math.abs(p.bezier.cy2 - p.y) < 0.5;
+
+          if (!c1Collapsed && Math.hypot(p.bezier.cx1 - svgPt.x, p.bezier.cy1 - svgPt.y) < hitRadius) {
             setSelectedPoints(new Set([`${s}-${i}-c1`]));
-            setDraggingPoint(true); dragStartRef.current = { x: svgPt.x, y: svgPt.y }; return;
+            setDraggingPoint(true); dragStartRef.current = { x: svgPt.x, y: svgPt.y }; dragInitialPosRef.current = { x: svgPt.x, y: svgPt.y }; shiftAxisRef.current = null; return;
           }
-          if (Math.hypot(p.bezier.cx2 - svgPt.x, p.bezier.cy2 - svgPt.y) < hitRadius) {
+          if (!c2Collapsed && Math.hypot(p.bezier.cx2 - svgPt.x, p.bezier.cy2 - svgPt.y) < hitRadius) {
             setSelectedPoints(new Set([`${s}-${i}-c2`]));
-            setDraggingPoint(true); dragStartRef.current = { x: svgPt.x, y: svgPt.y }; return;
+            setDraggingPoint(true); dragStartRef.current = { x: svgPt.x, y: svgPt.y }; dragInitialPosRef.current = { x: svgPt.x, y: svgPt.y }; shiftAxisRef.current = null; return;
           }
         }
       }
@@ -828,15 +1222,11 @@ ${pathsSvg}
           }
           setDraggingPoint(true);
           dragStartRef.current = { x: svgPt.x, y: svgPt.y };
+          dragInitialPosRef.current = { x: svgPt.x, y: svgPt.y };
+          shiftAxisRef.current = null;
           return;
         }
       }
-    }
-    // 1. Panning Logic (Always allowed even if not clicking SVG, if Space or Right/Middle button)
-    if (isSpacePressed || e.button === 2 || e.button === 1) {
-      setIsPanning(true);
-      panStartRef.current = { x: e.clientX, y: e.clientY };
-      return;
     }
 
     if (isCtrl) {
@@ -845,7 +1235,7 @@ ${pathsSvg}
     } else {
       setSelectedPoints(new Set());
     }
-  }, [editMode, svgPaths, zoom, selectedPoints, isSpacePressed]);
+  }, [editMode, svgPaths, zoom, selectedPoints, isSpacePressed, drawTool]);
 
   const handleSvgMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     const isAlt = e.altKey;
@@ -860,16 +1250,140 @@ ${pathsSvg}
       svgPt.y = Math.round(svgPt.y);
     }
 
+    // Case 0: Rectangle drawing
+    if (rectDraw) {
+      ignoreClickRef.current = true;
+      setRectDraw(prev => prev ? { ...prev, x2: svgPt.x, y2: svgPt.y } : null);
+      return;
+    }
     // Case 1: Panning
     if (isPanning && panStartRef.current) {
+      ignoreClickRef.current = true;
       const dx = e.clientX - panStartRef.current.x;
       const dy = e.clientY - panStartRef.current.y;
       setPan(p => ({ x: p.x + dx, y: p.y + dy }));
       panStartRef.current = { x: e.clientX, y: e.clientY };
       return;
     }
+
+    // Case 1.2: Layer Resizing
+    if (resizingLayer && dragStartRef.current && dragInitialBoundsRef.current && dragInitialPathsRef.current) {
+      ignoreClickRef.current = true;
+      const { handle } = resizingLayer;
+      const initB = dragInitialBoundsRef.current;
+      const initPaths = dragInitialPathsRef.current;
+      const isShift = e.shiftKey;
+      const isAlt = e.altKey;
+      
+      const dx = svgPt.x - dragStartRef.current.x;
+      const dy = svgPt.y - dragStartRef.current.y;
+
+      let newX = initB.x; let newY = initB.y;
+      let newW = initB.w; let newH = initB.h;
+
+      if (isAlt) {
+        if (handle.includes('n')) newH = initB.h - dy * 2;
+        if (handle.includes('s')) newH = initB.h + dy * 2;
+        if (handle.includes('w')) newW = initB.w - dx * 2;
+        if (handle.includes('e')) newW = initB.w + dx * 2;
+      } else {
+        if (handle.includes('n')) { newY = initB.y + dy; newH = initB.h - dy; }
+        if (handle.includes('s')) { newH = initB.h + dy; }
+        if (handle.includes('w')) { newX = initB.x + dx; newW = initB.w - dx; }
+        if (handle.includes('e')) { newW = initB.w + dx; }
+      }
+
+      if (newW === 0) newW = 0.001;
+      if (newH === 0) newH = 0.001;
+
+      let scaleX = newW / initB.w;
+      let scaleY = newH / initB.h;
+
+      if (isShift && handle.length === 2) {
+        const uniformScale = Math.max(Math.abs(scaleX), Math.abs(scaleY));
+        scaleX = uniformScale * Math.sign(scaleX);
+        scaleY = uniformScale * Math.sign(scaleY);
+        newW = initB.w * scaleX;
+        newH = initB.h * scaleY;
+        if (!isAlt) {
+          if (handle.includes('n')) newY = initB.y + initB.h - newH;
+          if (handle.includes('w')) newX = initB.x + initB.w - newW;
+        }
+      }
+
+      if (isAlt) {
+        newX = initB.x + (initB.w - initB.w * scaleX) / 2;
+        newY = initB.y + (initB.h - initB.h * scaleY) / 2;
+      }
+
+      setSvgPaths(prev => {
+        const np = [...prev];
+        selectedPathIds.forEach(pathId => {
+          const pIdx = np.findIndex(p => p.id === pathId);
+          if (pIdx === -1) return;
+          const oldP = initPaths.find(p => p.id === pathId);
+          if (!oldP) return;
+
+          np[pIdx] = {
+            ...oldP,
+            subPaths: oldP.subPaths.map(pts => pts.map(pt => ({
+              x: (pt.x - initB.x) * scaleX + newX,
+              y: (pt.y - initB.y) * scaleY + newY,
+              bezier: pt.bezier ? {
+                cx1: (pt.bezier.cx1 - initB.x) * scaleX + newX,
+                cy1: (pt.bezier.cy1 - initB.y) * scaleY + newY,
+                cx2: (pt.bezier.cx2 - initB.x) * scaleX + newX,
+                cy2: (pt.bezier.cy2 - initB.y) * scaleY + newY,
+              } : undefined
+            })))
+          };
+        });
+        return np;
+      });
+      return;
+    }
+
+    // Case 1.5: Layer Dragging
+    if (draggingLayer && dragStartRef.current && dragInitialPosRef.current) {
+      ignoreClickRef.current = true;
+      const isShift = e.shiftKey;
+      let deltaX = svgPt.x - dragStartRef.current.x;
+      let deltaY = svgPt.y - dragStartRef.current.y;
+      
+      if (isShift) {
+        const totalDx = svgPt.x - dragInitialPosRef.current.x;
+        const totalDy = svgPt.y - dragInitialPosRef.current.y;
+        if (!shiftAxisRef.current) {
+          shiftAxisRef.current = Math.abs(totalDx) > Math.abs(totalDy) ? 'h' : 'v';
+        }
+        if (shiftAxisRef.current === 'h') deltaY = dragInitialPosRef.current.y - dragStartRef.current.y;
+        else deltaX = dragInitialPosRef.current.x - dragStartRef.current.x;
+      } else {
+        shiftAxisRef.current = null;
+      }
+
+      setSvgPaths(prev => prev.map(p => {
+        if (p.id !== draggingLayer) return p;
+        return {
+          ...p,
+          subPaths: p.subPaths.map(pts => pts.map(pt => ({
+            x: pt.x + deltaX,
+            y: pt.y + deltaY,
+            bezier: pt.bezier ? {
+              cx1: pt.bezier.cx1 + deltaX,
+              cy1: pt.bezier.cy1 + deltaY,
+              cx2: pt.bezier.cx2 + deltaX,
+              cy2: pt.bezier.cy2 + deltaY,
+            } : undefined
+          })))
+        };
+      }));
+      dragStartRef.current = { x: dragStartRef.current.x + deltaX, y: dragStartRef.current.y + deltaY };
+      return;
+    }
     // Case 2: Dragging Points
-    if (draggingPoint && selectedPathId && selectedPoints.size > 0 && dragStartRef.current) {
+    if (draggingPoint && selectedPathId && selectedPoints.size > 0 && dragStartRef.current && dragInitialPosRef.current) {
+      ignoreClickRef.current = true;
       const isShift = e.shiftKey;
       let deltaX = svgPt.x - dragStartRef.current.x;
       let deltaY = svgPt.y - dragStartRef.current.y;
@@ -878,10 +1392,36 @@ ${pathsSvg}
       const activePathId = selectedPathId || 'wall';
       const wall = svgPaths.find(p => p.id === activePathId) || svgPaths[0];
       if (wall.locked || wall.visible === false) return;
+
       let currentPerp: Point | null = null;
       let currentCircle: { x: number, y: number, r: number } | null = null;
 
-      // Enhanced Snapping Logic (if Shift is held)
+      let forceHorizontal = false;
+      let forceVertical = false;
+
+      // Shift + Drag: constrain to horizontal or vertical axis based on total drag distance
+      if (isShift) {
+        if (!shiftAxisRef.current) {
+          const totalDx = svgPt.x - dragInitialPosRef.current.x;
+          const totalDy = svgPt.y - dragInitialPosRef.current.y;
+          if (Math.abs(totalDx) > Math.abs(totalDy)) {
+            shiftAxisRef.current = 'h';
+          } else {
+            shiftAxisRef.current = 'v';
+          }
+        }
+        if (shiftAxisRef.current === 'h') {
+          deltaY = dragInitialPosRef.current.y - dragStartRef.current.y; // Return exactly to initial Y
+          forceHorizontal = true;
+        } else {
+          deltaX = dragInitialPosRef.current.x - dragStartRef.current.x; // Return exactly to initial X
+          forceVertical = true;
+        }
+      } else {
+        shiftAxisRef.current = null;
+      }
+
+      // Enhanced Snapping Logic (Only active when Shift is pressed, as requested)
       if (isShift && wall && selectedPoints.size === 1) {
         const parts = Array.from(selectedPoints)[0].split('-');
         const subIdx = Number(parts[0]);
@@ -910,87 +1450,40 @@ ${pathsSvg}
           const hTargetY = cy + deltaY;
           const anchor = handleType === 'c1' ? prev : p;
 
-          if (Math.abs(hTargetX - anchor.x) < threshold) {
+          if (!forceVertical && Math.abs(hTargetX - anchor.x) < threshold) {
             deltaX = anchor.x - cx;
             guides.push({ x1: anchor.x, y1: -margin, x2: anchor.x, y2: h + margin, type: 'v', isPerfect: true });
           }
-          if (Math.abs(hTargetY - anchor.y) < threshold) {
+          if (!forceHorizontal && Math.abs(hTargetY - anchor.y) < threshold) {
             deltaY = anchor.y - cy;
             guides.push({ x1: -margin, y1: anchor.y, x2: w + margin, y2: anchor.y, type: 'h', isPerfect: true });
           }
         } else {
-          // 1. Thales's Circle Snap (Any-Angle 90-degree Corner)
-          const cx = (prev.x + next.x) / 2;
-          const cy = (prev.y + next.y) / 2;
-          const r = Math.sqrt((prev.x - next.x) ** 2 + (prev.y - next.y) ** 2) / 2;
+          // Global Axis Snap (Horizontal/Vertical) to neighbors
+          [prev, next].forEach(n => {
+            if (!forceVertical && Math.abs(targetX - n.x) < threshold) {
+              deltaX = n.x - p.x;
+            }
+            if (!forceHorizontal && Math.abs(targetY - n.y) < threshold) {
+              deltaY = n.y - p.y;
+            }
+          });
 
-          const distToCenter = Math.sqrt((targetX - cx) ** 2 + (targetY - cy) ** 2);
-
-          let snappedToCircle = false;
-          if (Math.abs(distToCenter - r) < threshold) {
-            const angle = Math.atan2(targetY - cy, targetX - cx);
-            const snappedX = cx + r * Math.cos(angle);
-            const snappedY = cy + r * Math.sin(angle);
-
-            deltaX = snappedX - p.x;
-            deltaY = snappedY - p.y;
-
-            const isH = Math.abs(snappedY - prev.y) < 0.5 || Math.abs(snappedY - next.y) < 0.5;
-            const isV = Math.abs(snappedX - prev.x) < 0.5 || Math.abs(snappedX - next.x) < 0.5;
-            const isPerfectCorner = isH && isV;
-
-            const extend = (p1: Point, p2: Point, length: number) => {
-              const dx = p2.x - p1.x; const dy = p2.y - p1.y;
-              const d = Math.sqrt(dx * dx + dy * dy);
-              if (d === 0) return { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y };
-              return {
-                x1: p2.x - (dx / d) * length, y1: p2.y - (dy / d) * length,
-                x2: p2.x + (dx / d) * length, y2: p2.y + (dy / d) * length
-              };
-            };
-            const g1 = extend(prev, { x: snappedX, y: snappedY }, margin);
-            const g2 = extend(next, { x: snappedX, y: snappedY }, margin);
-
-            guides.push({ ...g1, type: 'v', isPerp: true, isPerfect: isPerfectCorner });
-            guides.push({ ...g2, type: 'h', isPerp: true, isPerfect: isPerfectCorner });
-
-            currentPerp = { x: snappedX, y: snappedY };
-            currentCircle = { x: cx, y: cy, r };
-            snappedToCircle = true;
-          }
-
-          // 2. Global Axis Snap (Horizontal/Vertical)
-          if (!snappedToCircle) {
-            let snapH = false;
-            let snapV = false;
-
-            [prev, next].forEach(n => {
-              if (Math.abs(targetX - n.x) < threshold) {
-                deltaX = n.x - p.x;
-                snapV = true;
-              }
-              if (Math.abs(targetY - n.y) < threshold) {
-                deltaY = n.y - p.y;
-                snapH = true;
-              }
-            });
-
-            const isCorner = snapH && snapV;
-            [prev, next].forEach(n => {
-              if (Math.abs((p.x + deltaX) - n.x) < 0.5) {
-                guides.push({ x1: n.x, y1: -margin, x2: n.x, y2: h + margin, type: 'v', isPerp: isCorner, isPerfect: isCorner });
-              }
-              if (Math.abs((p.y + deltaY) - n.y) < 0.5) {
-                guides.push({ x1: -margin, y1: n.y, x2: w + margin, y2: n.y, type: 'h', isPerp: isCorner, isPerfect: isCorner });
-              }
-            });
-          }
-        } // end of else (main point)
-      } // end of if (isShift)
+          // Draw guides
+          [prev, next].forEach(n => {
+            if (Math.abs((p.x + deltaX) - n.x) < 0.5) {
+              guides.push({ x1: n.x, y1: -margin, x2: n.x, y2: h + margin, type: 'v', isPerfect: true });
+            }
+            if (Math.abs((p.y + deltaY) - n.y) < 0.5) {
+              guides.push({ x1: -margin, y1: n.y, x2: w + margin, y2: n.y, type: 'h', isPerfect: true });
+            }
+          });
+        }
+      }
 
       setSnapGuides(guides);
-      setSnapCircle(currentCircle);
-      setPerpPoint(currentPerp);
+      setSnapCircle(null);
+      setPerpPoint(null);
 
       dragStartRef.current = { x: dragStartRef.current.x + deltaX, y: dragStartRef.current.y + deltaY };
 
@@ -1054,6 +1547,7 @@ ${pathsSvg}
 
     // Case 3: Drag Selection Box (Marquee)
     if (selectionBox) {
+      ignoreClickRef.current = true;
       const newBox = { ...selectionBox, x2: svgPt.x, y2: svgPt.y };
       setSelectionBox(newBox);
 
@@ -1100,22 +1594,26 @@ ${pathsSvg}
 
           // quick bounding box check
           if (svgPt.x >= px && svgPt.x <= px2 && svgPt.y >= py && svgPt.y <= py2) {
-            const dist = perpDist(svgPt, prev, curr);
-            if (dist < hitRadius) {
-              let midP: Point;
-              if (curr.bezier) {
-                const t = 0.5;
-                const mt = 1 - t;
-                midP = {
-                  x: mt * mt * mt * prev.x + 3 * mt * mt * t * curr.bezier.cx1 + 3 * mt * t * t * curr.bezier.cx2 + t * t * t * curr.x,
-                  y: mt * mt * mt * prev.y + 3 * mt * mt * t * curr.bezier.cy1 + 3 * mt * t * t * curr.bezier.cy2 + t * t * t * curr.y
-                };
-              } else {
-                midP = { x: (prev.x + curr.x) / 2, y: (prev.y + curr.y) / 2 };
+            // Only show add node guide if points are far enough apart visually (> 18px on screen)
+            const distInSvg = Math.hypot(curr.x - prev.x, curr.y - prev.y);
+            if (distInSvg * zoom > 18) {
+              const dist = perpDist(svgPt, prev, curr);
+              if (dist < hitRadius) {
+                let midP: Point;
+                if (curr.bezier) {
+                  const t = 0.5;
+                  const mt = 1 - t;
+                  midP = {
+                    x: mt * mt * mt * prev.x + 3 * mt * mt * t * curr.bezier.cx1 + 3 * mt * t * t * curr.bezier.cx2 + t * t * t * curr.x,
+                    y: mt * mt * mt * prev.y + 3 * mt * mt * t * curr.bezier.cy1 + 3 * mt * t * t * curr.bezier.cy2 + t * t * t * curr.y
+                  };
+                } else {
+                  midP = { x: (prev.x + curr.x) / 2, y: (prev.y + curr.y) / 2 };
+                }
+                setAddNodeGuide({ s, i, pt: midP });
+                foundHover = true;
+                break;
               }
-              setAddNodeGuide({ s, i, pt: midP });
-              foundHover = true;
-              break;
             }
           }
         }
@@ -1125,15 +1623,62 @@ ${pathsSvg}
     } else {
       setAddNodeGuide(null);
     }
-  }, [editMode, draggingPoint, selectedPathId, selectedPoints, selectionBox, isPanning, svgPaths, zoom]);
+  }, [editMode, draggingPoint, selectedPathId, selectedPoints, selectionBox, isPanning, svgPaths, zoom, rectDraw, resizingLayer, draggingLayer, selectedPathIds]);
 
   const handleSvgMouseUp = useCallback(() => {
+    setTimeout(() => { ignoreClickRef.current = false; }, 100);
+
+    if (draggingLayer) {
+      setDraggingLayer(null);
+      latestPathsRef.current = svgPaths;
+      commitChange(svgPaths);
+    }
+
+    if (resizingLayer) {
+      setResizingLayer(null);
+      latestPathsRef.current = svgPaths;
+      commitChange(svgPaths);
+    }
+
+    // Finalize rectangle drawing
+    if (rectDraw) {
+      const x1 = Math.min(rectDraw.x1, rectDraw.x2);
+      const y1 = Math.min(rectDraw.y1, rectDraw.y2);
+      const x2 = Math.max(rectDraw.x1, rectDraw.x2);
+      const y2 = Math.max(rectDraw.y1, rectDraw.y2);
+      const w = x2 - x1;
+      const h = y2 - y1;
+      if (w > 5 && h > 5) {
+        const rectPath: SvgPath = {
+          id: `rect-${Date.now()}`,
+          name: `Rect ${svgPaths.length + 1}`,
+          subPaths: [[
+            { x: x1, y: y1 },
+            { x: x2, y: y1 },
+            { x: x2, y: y2 },
+            { x: x1, y: y2 },
+          ]],
+          closed: true,
+          color: '#555555',
+          opacity: 0.6,
+        };
+        const newPaths = [rectPath, ...svgPaths]; // Add to top of the layer list
+        setSvgPaths(newPaths);
+        latestPathsRef.current = newPaths;
+        commitChange(newPaths);
+        setSelectedPathId(rectPath.id);
+        setSelectedPathIds(new Set([rectPath.id]));
+      }
+      setRectDraw(null);
+      setDrawTool('select');
+      return;
+    }
+
     // Process Drag Selection
     if (selectionBox) {
       const newlySelected = new Set(selectedPoints);
       highlightedPoints.forEach(p => newlySelected.add(p));
       setSelectedPoints(newlySelected);
-      if (newlySelected.size > 0) setSelectedPathId('wall');
       setSelectionBox(null);
       setHighlightedPoints(new Set());
     }
@@ -1149,7 +1694,7 @@ ${pathsSvg}
     setPerpPoint(null);
     dragStartRef.current = null;
     panStartRef.current = null;
-  }, [selectionBox, selectedPoints, highlightedPoints, draggingPoint, commitChange]);
+  }, [selectionBox, selectedPoints, highlightedPoints, draggingPoint, commitChange, rectDraw, svgPaths, draggingLayer, resizingLayer]);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     if (step === 'upload') return;
@@ -1194,39 +1739,53 @@ ${pathsSvg}
             const next = pts[nextIdx];
 
             if (pt.bezier) {
+              // Toggle OFF: remove bezier from selected point
               const { bezier, ...rest } = pt;
               pts[i] = rest;
+
+              // Also clean up next point's outgoing bezier if cx2 is collapsed
+              // (meaning it was only created as this point's outgoing handle)
+              const nextPt = pts[nextIdx];
+              if (nextPt.bezier) {
+                const c2AtNext = Math.abs(nextPt.bezier.cx2 - nextPt.x) < 0.5 && Math.abs(nextPt.bezier.cy2 - nextPt.y) < 0.5;
+                if (c2AtNext) {
+                  const { bezier: _, ...nextRest } = nextPt;
+                  pts[nextIdx] = nextRest;
+                }
+              }
             } else {
-              // Calculate smooth tangent parallel to the chord (next - prev)
+              // Toggle ON: create handles on BOTH sides of the selected point
               const dx = next.x - prev.x;
               const dy = next.y - prev.y;
               const len = Math.hypot(dx, dy) || 1;
               const ux = dx / len;
               const uy = dy / len;
-              const handleLen = 40; // Default handle length
+              const handleLen = 40;
 
-              // Incoming segment to `i` (from `prev`)
+              // Incoming segment (prev → i): cx1 collapsed at prev, cx2 handle at selected point
               pts[i] = {
                 ...pt,
                 bezier: {
-                  cx1: prev.x + (pt.x - prev.x) * 0.33,
-                  cy1: prev.y + (pt.y - prev.y) * 0.33,
+                  cx1: prev.x,
+                  cy1: prev.y,
                   cx2: pt.x - ux * handleLen,
                   cy2: pt.y - uy * handleLen
                 }
               };
 
-              // Outgoing segment from `i` (to `next`)
-              const nextBz = pts[nextIdx].bezier;
-              pts[nextIdx] = {
-                ...next,
-                bezier: {
-                  cx1: pt.x + ux * handleLen,
-                  cy1: pt.y + uy * handleLen,
-                  cx2: nextBz ? nextBz.cx2 : next.x - (next.x - pt.x) * 0.33,
-                  cy2: nextBz ? nextBz.cy2 : next.y - (next.y - pt.y) * 0.33
-                }
-              };
+              // Outgoing segment (i → next): cx1 handle at selected point, cx2 collapsed at next
+              // Only create if next doesn't already have its own curve
+              if (!pts[nextIdx].bezier) {
+                pts[nextIdx] = {
+                  ...next,
+                  bezier: {
+                    cx1: pt.x + ux * handleLen,
+                    cy1: pt.y + uy * handleLen,
+                    cx2: next.x,
+                    cy2: next.y
+                  }
+                };
+              }
             }
           });
           return pts;
@@ -1290,10 +1849,18 @@ ${pathsSvg}
   }, [selectedPoints, commitChange]);
 
   const deleteSelectedPath = useCallback(() => {
-    if (!selectedPathId) return;
-    setSvgPaths(prev => prev.filter(p => p.id !== selectedPathId));
-    setSelectedPathId(null); setSelectedPoints(new Set());
-  }, [selectedPathId]);
+    if (selectedPathIds.size > 0) {
+      setSvgPaths(prev => prev.filter(p => !selectedPathIds.has(p.id)));
+      setSelectedPathIds(new Set());
+      setSelectedPathId(null);
+      setSelectedPoints(new Set());
+    } else if (selectedPathId) {
+      setSvgPaths(prev => prev.filter(p => p.id !== selectedPathId));
+      setSelectedPathId(null);
+      setSelectedPathIds(new Set());
+      setSelectedPoints(new Set());
+    }
+  }, [selectedPathId, selectedPathIds]);
 
   // Spacebar Pan & Editor Hotkeys
   useEffect(() => {
@@ -1333,7 +1900,7 @@ ${pathsSvg}
     };
   }, [step, selectedPoints.size, selectedPathId, deleteSelectedPoints, deleteSelectedPath, undo, redo, toggleCurve]);
 
-  const viewBox = sourceImage ? `0 0 ${sourceImage.naturalWidth} ${sourceImage.naturalHeight}` : '0 0 100 100';
+  const viewBox = `0 0 ${canvasSize.width} ${canvasSize.height}`;
 
   // Reusable slider
   const Slider = ({ label, value, min, max, step: s, onChange, unit }: {
@@ -1388,9 +1955,28 @@ ${pathsSvg}
                 </div>
               )}
             </div>
-            <button onClick={onClose} className="p-2 rounded-xl hover:bg-white/10 text-white/40 hover:text-white transition-all">
-              <X size={18} />
-            </button>
+            
+            <div className="flex items-center gap-3">
+              {/* Language Toggle */}
+              <div className="flex bg-white/5 border border-white/10 rounded-full p-0.5">
+                <button
+                  onClick={() => onLanguageChange?.('ko')}
+                  className={`px-2 py-1 rounded-full text-[9px] font-black uppercase transition-all ${language === 'ko' ? 'bg-teal-500 text-black' : 'text-white/30 hover:text-white/60'}`}
+                >
+                  KO
+                </button>
+                <button
+                  onClick={() => onLanguageChange?.('en')}
+                  className={`px-2 py-1 rounded-full text-[9px] font-black uppercase transition-all ${language === 'en' ? 'bg-teal-500 text-black' : 'text-white/30 hover:text-white/60'}`}
+                >
+                  EN
+                </button>
+              </div>
+
+              <button onClick={onClose} className="p-2 rounded-xl hover:bg-white/10 text-white/40 hover:text-white transition-all">
+                <X size={18} />
+              </button>
+            </div>
           </div>
 
           {/* Body */}
@@ -1407,7 +1993,7 @@ ${pathsSvg}
                   onClick={() => {
                     const input = document.createElement('input');
                     input.type = 'file';
-                    input.accept = 'image/png,image/jpeg,image/gif,image/bmp,image/webp';
+                    input.accept = 'image/png,image/jpeg,image/gif,image/bmp,image/webp,image/svg+xml,.svg';
                     input.onchange = (e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) handleFile(f); };
                     input.click();
                   }}
@@ -1417,7 +2003,7 @@ ${pathsSvg}
                   </div>
                   <div className="text-center space-y-2">
                     <p className={`text-sm font-black uppercase ${isDragging ? 'text-white/60' : 'text-white/60 group-hover:text-white'}`}>{t('Drop Floorplan Image Here', '도면 이미지를 여기에 드롭하세요')}</p>
-                    <p className="text-[10px] text-white/20 font-bold uppercase tracking-wider">{t('PNG, JPG, GIF, BMP, WEBP', '지원 형식: PNG, JPG, WEBP 등')}</p>
+                    <p className="text-[10px] text-white/20 font-bold uppercase tracking-wider">{t('PNG, JPG, WEBP, SVG', '지원 형식: PNG, JPG, WEBP, SVG')}</p>
                   </div>
                 </div>
               </div>
@@ -1597,11 +2183,28 @@ ${pathsSvg}
                               <Grid size={12} /> {t('Pixel Snap', '픽셀 스냅')}
                             </button>
                           </div>
+                          {/* Draw Tools */}
+                          <div className="space-y-1.5">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-white/30">{t('Draw Tools', '그리기 도구')}</span>
+                            <div className="grid grid-cols-2 gap-1.5">
+                              <button
+                                onClick={() => { setDrawTool('select'); setEditMode(true); }}
+                                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all ${drawTool === 'select' ? 'bg-teal-500/10 border-teal-500/30 text-teal-500' : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10'}`}
+                              >
+                                <MousePointer size={12} /> {t('Select', '선택')}
+                              </button>
+                              <button
+                                onClick={() => { setDrawTool(drawTool === 'rect' ? 'select' : 'rect'); }}
+                                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all ${drawTool === 'rect' ? 'bg-teal-500/10 border-teal-500/30 text-teal-500' : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10'}`}
+                              >
+                                <Square size={12} /> {t('Rectangle', '사각형')}
+                              </button>
+                            </div>
+                          </div>
                           <div className="grid grid-cols-2 gap-1.5">
                             <button
-                              onClick={() => setEditMode(!editMode)}
-                              className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all ${editMode ? 'bg-teal-500/10 border-teal-500/30 text-teal-500' : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10'
-                                }`}
+                              onClick={() => { setEditMode(!editMode); if (drawTool === 'rect') setDrawTool('select'); }}
+                              className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all ${editMode ? 'bg-teal-500/10 border-teal-500/30 text-teal-500' : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10'}`}
                             >
                               <Pencil size={12} /> {t('Edit Points', '점 편집')}
                             </button>
@@ -1613,11 +2216,30 @@ ${pathsSvg}
                               <Trash2 size={12} /> {t('Delete', '삭제')} {selectedPoints.size > 0 ? `(${selectedPoints.size})` : ''}
                             </button>
                           </div>
-                          {selectedPathId && (
+
+                          {selectedPathIds.size === 2 && (
+                            <div className="space-y-1.5 mt-2">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-teal-500/60">{t('Boolean', '도형 연산')}</span>
+                              <div className="grid grid-cols-2 gap-1.5">
+                                {(['union', 'subtract', 'intersect', 'exclude'] as const).map(op => (
+                                  <button
+                                    key={op}
+                                    onClick={() => handleBooleanOp(op)}
+                                    className="flex items-center justify-center gap-2 py-2 rounded-xl border border-teal-500/20 bg-teal-500/10 text-teal-500 hover:bg-teal-500/20 text-[10px] font-black uppercase tracking-wider transition-all"
+                                  >
+                                    <BooleanIcon type={op} />
+                                    {op}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {selectedPathIds.size > 0 && (
                             <button onClick={deleteSelectedPath}
-                              className="w-full flex items-center justify-center gap-2 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all bg-red-500/10 border-red-500/20 text-red-500 hover:bg-red-500/20"
+                              className="w-full flex items-center justify-center gap-2 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all bg-red-500/10 border-red-500/20 text-red-500 hover:bg-red-500/20 mt-2"
                             >
-                              <Trash2 size={12} /> {t('Delete Selected Path', '선택된 패스 삭제')}
+                              <Trash2 size={12} /> {t('Delete Selected Layer(s)', '선택된 레이어 삭제')}
                             </button>
                           )}
                         </div>
@@ -1627,8 +2249,20 @@ ${pathsSvg}
                           <div className="flex flex-col gap-1.5">
                             {svgPaths.map((path, idx) => (
                               <div key={path.id}
-                                className={`px-2 py-2 rounded-xl border flex flex-col gap-2 transition-all cursor-pointer ${selectedPathId === path.id ? 'border-teal-500/50 bg-teal-500/10' : 'border-white/10 bg-white/5'}`}
-                                onClick={() => setSelectedPathId(path.id)}
+                                className={`px-2 py-2 rounded-xl border flex flex-col gap-2 transition-all cursor-pointer ${selectedPathIds.has(path.id) ? 'border-teal-500/50 bg-teal-500/10' : 'border-white/10 bg-white/5'}`}
+                                onClick={(e) => {
+                                  if (e.shiftKey || e.ctrlKey || e.metaKey) {
+                                    setSelectedPathIds(prev => {
+                                      const next = new Set(prev);
+                                      if (next.has(path.id)) next.delete(path.id); else next.add(path.id);
+                                      return next;
+                                    });
+                                    setSelectedPathId(null);
+                                  } else {
+                                    setSelectedPathId(path.id);
+                                    setSelectedPathIds(new Set([path.id]));
+                                  }
+                                }}
                               >
                                 <div className="flex justify-between items-center w-full">
                                   <div className="flex items-center gap-1.5">
@@ -1636,16 +2270,63 @@ ${pathsSvg}
                                       <button disabled={idx === 0} onClick={(e) => { e.stopPropagation(); if (idx === 0) return; const newPaths = [...svgPaths]; const temp = newPaths[idx - 1]; newPaths[idx - 1] = path; newPaths[idx] = temp; setSvgPaths(newPaths); commitChange(newPaths); }} className="hover:text-teal-500 disabled:opacity-30 disabled:hover:text-white"><ChevronUp size={10} /></button>
                                       <button disabled={idx === svgPaths.length - 1} onClick={(e) => { e.stopPropagation(); if (idx === svgPaths.length - 1) return; const newPaths = [...svgPaths]; const temp = newPaths[idx + 1]; newPaths[idx + 1] = path; newPaths[idx] = temp; setSvgPaths(newPaths); commitChange(newPaths); }} className="hover:text-teal-500 disabled:opacity-30 disabled:hover:text-white"><ChevronDown size={10} /></button>
                                     </div>
-                                    <span className={`text-[10px] font-black uppercase tracking-widest ${selectedPathId === path.id ? 'text-teal-500' : 'text-white/60'}`}>
-                                      {path.id === 'floor' ? t('Floor', '바닥면') : t('Wall', '벽체')} <span className="text-[10px] bg-white/10 px-1 py-0.5 rounded ml-1 text-white/40">{path.subPaths.length} pts</span>
-                                    </span>
+                                    {editingLayerId === path.id ? (
+                                      <input
+                                        autoFocus
+                                        defaultValue={path.name || (path.id === 'floor' ? t('Floor', '바닥면') : path.id === 'wall' ? t('Wall', '벽체') : path.id)}
+                                        onBlur={(e) => {
+                                          const val = e.target.value.trim();
+                                          if (val) {
+                                            const np = [...svgPaths]; np[idx] = { ...path, name: val }; setSvgPaths(np);
+                                          }
+                                          setEditingLayerId(null);
+                                        }}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                          if (e.key === 'Escape') setEditingLayerId(null);
+                                          e.stopPropagation();
+                                        }}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="bg-black/60 border border-teal-500/50 rounded px-1.5 py-0.5 text-[10px] font-black text-teal-500 outline-none w-24"
+                                      />
+                                    ) : (
+                                      <span
+                                        className={`text-[10px] font-black uppercase tracking-widest cursor-text ${selectedPathIds.has(path.id) ? 'text-teal-500' : 'text-white/60'}`}
+                                        onDoubleClick={(e) => { e.stopPropagation(); setEditingLayerId(path.id); }}
+                                      >
+                                        {path.name || (path.id === 'floor' ? t('Floor', '바닥면') : path.id === 'wall' ? t('Wall', '벽체') : path.id)}
+                                        {' '}<span className="text-[10px] bg-white/10 px-1 py-0.5 rounded ml-1 text-white/40">{path.subPaths.reduce((sum, sp) => sum + sp.length, 0)} pts</span>
+                                      </span>
+                                    )}
                                   </div>
                                   <div className="flex items-center gap-1">
-                                    <button onClick={(e) => { e.stopPropagation(); const np = [...svgPaths]; np[idx] = { ...path, visible: path.visible === false ? true : false }; setSvgPaths(np); commitChange(np); }} className={`p-1.5 rounded-lg transition-all ${path.visible === false ? 'bg-white/5 text-white/20 hover:bg-white/10' : 'bg-teal-500/20 text-teal-500 hover:bg-teal-500/30'}`}>
+                                    <button onClick={(e) => { e.stopPropagation(); const np = [...svgPaths]; np[idx] = { ...path, visible: path.visible === false ? true : false }; setSvgPaths(np); commitChange(np); }} className={`p-1.5 rounded-lg transition-all ${path.visible === false ? 'bg-white/5 text-white/20 hover:bg-white/10' : 'bg-teal-500/20 text-teal-500 hover:bg-teal-500/30'}`} title={t('Show/Hide', '표시/숨김')}>
                                       {path.visible === false ? <EyeOff size={12} /> : <Eye size={12} />}
                                     </button>
-                                    <button onClick={(e) => { e.stopPropagation(); const np = [...svgPaths]; np[idx] = { ...path, locked: !path.locked }; setSvgPaths(np); commitChange(np); }} className={`p-1.5 rounded-lg transition-all ${path.locked ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}>
+                                    <button onClick={(e) => { e.stopPropagation(); const np = [...svgPaths]; np[idx] = { ...path, locked: !path.locked }; setSvgPaths(np); commitChange(np); }} className={`p-1.5 rounded-lg transition-all ${path.locked ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30' : 'bg-white/5 text-white/40 hover:bg-white/10'}`} title={t('Lock/Unlock', '잠금/해제')}>
                                       {path.locked ? <Lock size={12} /> : <Unlock size={12} />}
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const newPath: SvgPath = {
+                                          ...path,
+                                          id: `${path.id}_copy_${Date.now()}`,
+                                          name: `${path.name || path.id} Copy`,
+                                          subPaths: path.subPaths.map(pts => pts.map(p => ({ ...p, bezier: p.bezier ? { ...p.bezier } : undefined })))
+                                        };
+                                        const np = [...svgPaths];
+                                        np.splice(idx + 1, 0, newPath);
+                                        setSvgPaths(np);
+                                        commitChange(np);
+                                        setSelectedPathId(newPath.id);
+                                        setSelectedPathIds(new Set([newPath.id]));
+                                        setSelectedPoints(new Set());
+                                      }}
+                                      className="p-1.5 rounded-lg transition-all bg-white/5 text-white/40 hover:bg-white/10 hover:text-white"
+                                      title={t('Duplicate Layer', '레이어 복제')}
+                                    >
+                                      <Copy size={12} />
                                     </button>
                                   </div>
                                 </div>
@@ -1664,16 +2345,48 @@ ${pathsSvg}
                           </div>
                         </div>
 
+                        {selectedPathIds.size === 1 && (() => {
+                          const bounds = getSelectionBounds();
+                          if (!bounds) return null;
+                          const pathId = Array.from(selectedPathIds)[0];
+                          return (
+                            <div className="space-y-1.5 p-3 bg-white/5 border border-white/10 rounded-xl">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-teal-500/60 block mb-2">{t('Layer Transform', '레이어 크기/위치')}</span>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <span className="text-[9px] text-white/40 block mb-1">X</span>
+                                  <input type="number" value={Math.round(bounds.x)} onChange={e => { const val = parseFloat(e.target.value); if(!isNaN(val)) applyPathTransform(pathId, val, bounds.y, bounds.w, bounds.h); }} className="w-full bg-black/60 border border-white/10 rounded px-2 py-1 text-xs text-white" />
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-white/40 block mb-1">Y</span>
+                                  <input type="number" value={Math.round(bounds.y)} onChange={e => { const val = parseFloat(e.target.value); if(!isNaN(val)) applyPathTransform(pathId, bounds.x, val, bounds.w, bounds.h); }} className="w-full bg-black/60 border border-white/10 rounded px-2 py-1 text-xs text-white" />
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-white/40 block mb-1">Width</span>
+                                  <input type="number" value={Math.round(bounds.w)} onChange={e => { const val = parseFloat(e.target.value); if(!isNaN(val) && val > 0) applyPathTransform(pathId, bounds.x, bounds.y, val, bounds.h); }} className="w-full bg-black/60 border border-white/10 rounded px-2 py-1 text-xs text-white" />
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-white/40 block mb-1">Height</span>
+                                  <input type="number" value={Math.round(bounds.h)} onChange={e => { const val = parseFloat(e.target.value); if(!isNaN(val) && val > 0) applyPathTransform(pathId, bounds.x, bounds.y, bounds.w, val); }} className="w-full bg-black/60 border border-white/10 rounded px-2 py-1 text-xs text-white" />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+
                         <div className="space-y-3 p-3 bg-white/[0.02] rounded-xl border border-white/5">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-white/30">{t('SVG Export', '내보내기 설정')}</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-white/30">{t('Canvas / Export', '캔버스 / 출력 설정')}</span>
                           <div className="space-y-1.5">
-                            <span className="text-[10px] text-white/30 font-bold uppercase">{t('Export Width (px)', '출력 가로 너비 (px)')}</span>
-                            <input type="number" min={1} value={svgWidth}
-                              onChange={(e) => setSvgWidth(e.target.value)}
-                              onBlur={(e) => setSvgWidth(Math.max(1, parseInt(e.target.value) || 1000))}
+                            <span className="text-[10px] text-white/30 font-bold uppercase">{t('Canvas Width (px)', '캔버스 전체 가로 너비 (px)')}</span>
+                            <input type="number" min={1} value={Math.round(canvasSize.width)}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value);
+                                if (!isNaN(val) && val > 0) handleResizeCanvas(val);
+                              }}
                               className="w-full bg-black/60 border border-white/10 rounded-lg px-3 py-2 text-[11px] font-mono font-bold text-white focus:border-teal-500/50 outline-none"
                             />
                           </div>
+
                           <button onClick={downloadSvg} disabled={svgPaths.length === 0}
                             className="w-full flex items-center justify-center gap-2 py-3 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/10 font-black uppercase rounded-xl text-[11px] transition-all disabled:opacity-30"
                           >
@@ -1779,10 +2492,10 @@ ${pathsSvg}
                       {step === 'edit' && sourceImage && (
                         <svg
                           viewBox={viewBox}
-                          width={sourceImage.naturalWidth}
-                          height={sourceImage.naturalHeight}
+                          width={canvasSize.width}
+                          height={canvasSize.height}
                           className="border border-white/10 rounded-lg shadow-xl bg-white"
-                          style={{ cursor: editMode ? 'crosshair' : 'default' }}
+                          style={{ cursor: editMode ? 'crosshair' : drawTool === 'rect' ? 'crosshair' : 'default' }}
                           onMouseDown={handleSvgMouseDown}
                           onMouseMove={handleSvgMouseMove}
                           onMouseUp={handleSvgMouseUp}
@@ -1793,39 +2506,75 @@ ${pathsSvg}
                               <path d="M 1 0 L 0 0 0 1" fill="none" stroke="rgba(0,0,0,0.15)" strokeWidth={1 / zoom} />
                             </pattern>
                             <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
-                              <rect width="10" height="10" fill="url(#smallGrid)" />
-                              <path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(0,0,0,0.35)" strokeWidth={2 / zoom} />
+                              {zoom >= 3 && <rect width="10" height="10" fill="url(#smallGrid)" />}
+                              <path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(0,0,0,0.12)" strokeWidth={1 / zoom} />
+                            </pattern>
+                            <pattern id="largeGrid" width="100" height="100" patternUnits="userSpaceOnUse">
+                              <rect width="100" height="100" fill="url(#grid)" />
+                              <path d="M 100 0 L 0 0 0 100" fill="none" stroke="rgba(0,0,0,0.18)" strokeWidth={1.5 / zoom} />
                             </pattern>
                           </defs>
                           {showBgInEdit && sourceImage && (
                             <image
                               href={sourceImage.src}
-                              width={sourceImage.naturalWidth}
-                              height={sourceImage.naturalHeight}
+                              width={canvasSize.width}
+                              height={canvasSize.height}
                               opacity={0.3}
+                              preserveAspectRatio="none"
                             />
                           )}
-                          {zoom >= 3 && (
-                            <rect width={sourceImage.naturalWidth} height={sourceImage.naturalHeight} fill="url(#grid)" pointerEvents="none" />
+                          {zoom >= 0.2 && (
+                            <rect width={canvasSize.width} height={canvasSize.height} fill="url(#largeGrid)" pointerEvents="none" />
                           )}
-                          {/* Combined paths preview */}
-                          {svgPaths.filter(p => p.visible !== false).map(path => (
+                          {/* Combined paths preview — render in reverse so top-of-list layer draws last (on top) */}
+                          {[...svgPaths].reverse().filter(p => p.visible !== false).map(path => (
                             <path
                               key={path.id}
                               d={path.subPaths.map(points => pathToSvgD(points, path.closed)).join(' ')}
                               fill={path.color || (path.id === 'floor' ? 'rgba(255,255,255,0.05)' : 'rgba(51,51,51,0.85)')}
                               fillOpacity={path.opacity !== undefined ? path.opacity : (path.id === 'floor' ? 0.05 : 0.85)}
                               fillRule="evenodd"
-                              stroke={path.id === 'floor' ? 'rgba(255,255,255,0.1)' : 'none'}
+                              stroke={selectedPathIds.has(path.id) ? ACCENT_400 : (path.id === 'floor' ? 'rgba(255,255,255,0.1)' : 'none')}
+                              strokeWidth={selectedPathIds.has(path.id) ? 2 / zoom : 1 / zoom}
+                              strokeDasharray={selectedPathIds.has(path.id) ? `${6 / zoom} ${3 / zoom}` : 'none'}
+                              onMouseDown={editMode || drawTool === 'rect' ? undefined : (e) => {
+                                if (e.button === 1 || e.button === 2) return;
+                                e.stopPropagation();
+                                if (ignoreClickRef.current) return;
+                                const svg = e.currentTarget.ownerSVGElement;
+                                if (!svg) return;
+                                const pt = svg.createSVGPoint();
+                                pt.x = e.clientX; pt.y = e.clientY;
+                                const ctm = svg.getScreenCTM()?.inverse();
+                                if (ctm) {
+                                  const svgPt = pt.matrixTransform(ctm);
+                                  dragStartRef.current = { x: svgPt.x, y: svgPt.y };
+                                  dragInitialPosRef.current = { x: svgPt.x, y: svgPt.y };
+                                  shiftAxisRef.current = null;
+                                  setDraggingLayer(path.id);
+                                }
+                                if (e.shiftKey || e.ctrlKey || e.metaKey) {
+                                  setSelectedPathIds(prev => {
+                                    const next = new Set(prev);
+                                    if (next.has(path.id)) next.delete(path.id); else next.add(path.id);
+                                    return next;
+                                  });
+                                  setSelectedPathId(null);
+                                } else {
+                                  setSelectedPathId(path.id); 
+                                  setSelectedPathIds(new Set([path.id]));
+                                }
+                                setSelectedPoints(new Set()); 
+                              }}
+                              style={{ cursor: editMode || drawTool === 'rect' ? 'crosshair' : 'pointer', pointerEvents: editMode || drawTool === 'rect' ? 'none' : 'auto' }}
                             />
                           ))}
 
-                          {/* Snap Guides - Infinite looking lines */}
                           {snapGuides.map((g, i) => (
                             <line key={i} x1={g.x1} y1={g.y1} x2={g.x2} y2={g.y2}
                               stroke={g.isPerfect ? ACCENT_400 : (g.isPerp ? '#4ade80' : '#0ea5e9')}
                               strokeWidth={(g.isPerfect ? 2 : 1.5) / zoom}
-                              strokeDasharray={g.isPerfect ? 'none' : '6 4'}
+                              strokeDasharray={g.isPerfect ? 'none' : `${6 / zoom} ${4 / zoom}`}
                               opacity={1.0}
                             />
                           ))}
@@ -1852,15 +2601,73 @@ ${pathsSvg}
                             if (!pt.bezier) return null;
                             const prevIdx = (i - 1 + pts.length) % pts.length;
                             const prev = pts[prevIdx];
+                            const c1Collapsed = Math.abs(pt.bezier.cx1 - prev.x) < 0.5 && Math.abs(pt.bezier.cy1 - prev.y) < 0.5;
+                            const c2Collapsed = Math.abs(pt.bezier.cx2 - pt.x) < 0.5 && Math.abs(pt.bezier.cy2 - pt.y) < 0.5;
                             return (
                               <g key={`bezier-${s}-${i}`}>
-                                <line x1={prev.x} y1={prev.y} x2={pt.bezier.cx1} y2={pt.bezier.cy1} stroke="#facc15" strokeWidth={1.5 / zoom} strokeOpacity={0.8} strokeDasharray="3 3" />
-                                <line x1={pt.x} y1={pt.y} x2={pt.bezier.cx2} y2={pt.bezier.cy2} stroke="#facc15" strokeWidth={1.5 / zoom} strokeOpacity={0.8} strokeDasharray="3 3" />
-                                <circle cx={pt.bezier.cx1} cy={pt.bezier.cy1} r={4.5 / zoom} fill={selectedPoints.has(`${s}-${i}-c1`) ? ACCENT_400 : "#facc15"} className="cursor-move" />
-                                <circle cx={pt.bezier.cx2} cy={pt.bezier.cy2} r={4.5 / zoom} fill={selectedPoints.has(`${s}-${i}-c2`) ? ACCENT_400 : "#facc15"} className="cursor-move" />
+                                {!c1Collapsed && <>
+                                  <line x1={prev.x} y1={prev.y} x2={pt.bezier.cx1} y2={pt.bezier.cy1} stroke="#facc15" strokeWidth={1.5 / zoom} strokeOpacity={0.8} strokeDasharray="3 3" />
+                                  <circle cx={pt.bezier.cx1} cy={pt.bezier.cy1} r={4.5 / zoom} fill={selectedPoints.has(`${s}-${i}-c1`) ? ACCENT_400 : "#facc15"} className="cursor-move" />
+                                </>}
+                                {!c2Collapsed && <>
+                                  <line x1={pt.x} y1={pt.y} x2={pt.bezier.cx2} y2={pt.bezier.cy2} stroke="#facc15" strokeWidth={1.5 / zoom} strokeOpacity={0.8} strokeDasharray="3 3" />
+                                  <circle cx={pt.bezier.cx2} cy={pt.bezier.cy2} r={4.5 / zoom} fill={selectedPoints.has(`${s}-${i}-c2`) ? ACCENT_400 : "#facc15"} className="cursor-move" />
+                                </>}
                               </g>
                             );
                           }))}
+
+                          {/* Layer Bounding Box and Resize Handles */}
+                          {!editMode && drawTool === 'select' && selectedPathIds.size >= 1 && (() => {
+                            const bounds = getSelectionBounds();
+                            if (!bounds) return null;
+                            const hSize = 8 / zoom;
+                            const hHalf = hSize / 2;
+                            const handles = [
+                              { id: 'nw', x: bounds.x, y: bounds.y, cursor: 'nwse-resize' },
+                              { id: 'n', x: bounds.x + bounds.w / 2, y: bounds.y, cursor: 'ns-resize' },
+                              { id: 'ne', x: bounds.x + bounds.w, y: bounds.y, cursor: 'nesw-resize' },
+                              { id: 'w', x: bounds.x, y: bounds.y + bounds.h / 2, cursor: 'ew-resize' },
+                              { id: 'e', x: bounds.x + bounds.w, y: bounds.y + bounds.h / 2, cursor: 'ew-resize' },
+                              { id: 'sw', x: bounds.x, y: bounds.y + bounds.h, cursor: 'nesw-resize' },
+                              { id: 's', x: bounds.x + bounds.w / 2, y: bounds.y + bounds.h, cursor: 'ns-resize' },
+                              { id: 'se', x: bounds.x + bounds.w, y: bounds.y + bounds.h, cursor: 'nwse-resize' },
+                            ];
+                            const pathId = Array.from(selectedPathIds)[0];
+                            return (
+                              <g>
+                                <rect
+                                  x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h}
+                                  fill="none" stroke={ACCENT_400} strokeWidth={1 / zoom} strokeDasharray={`${4/zoom} ${4/zoom}`}
+                                  pointerEvents="none"
+                                />
+                                {handles.map(h => (
+                                  <rect
+                                    key={h.id}
+                                    x={h.x - hHalf} y={h.y - hHalf} width={hSize} height={hSize}
+                                    fill="white" stroke={ACCENT_400} strokeWidth={1.5 / zoom}
+                                    style={{ cursor: h.cursor }}
+                                    onMouseDown={(e) => {
+                                      if (e.button === 1 || e.button === 2) return;
+                                      e.stopPropagation();
+                                      const svg = e.currentTarget.ownerSVGElement;
+                                      if (!svg) return;
+                                      const pt = svg.createSVGPoint();
+                                      pt.x = e.clientX; pt.y = e.clientY;
+                                      const ctm = svg.getScreenCTM()?.inverse();
+                                      if (ctm) {
+                                        const svgPt = pt.matrixTransform(ctm);
+                                        dragStartRef.current = { x: svgPt.x, y: svgPt.y };
+                                      }
+                                      setResizingLayer({ pathId, handle: h.id });
+                                      dragInitialBoundsRef.current = bounds;
+                                      dragInitialPathsRef.current = JSON.parse(JSON.stringify(svgPaths));
+                                    }}
+                                  />
+                                ))}
+                              </g>
+                            );
+                          })()}
 
                           {/* Selection Box (Marquee) */}
                           {selectionBox && (
@@ -1876,6 +2683,21 @@ ${pathsSvg}
                             />
                           )}
 
+                          {/* Rectangle Draw Preview */}
+                          {rectDraw && (
+                            <rect
+                              x={Math.min(rectDraw.x1, rectDraw.x2)}
+                              y={Math.min(rectDraw.y1, rectDraw.y2)}
+                              width={Math.abs(rectDraw.x2 - rectDraw.x1)}
+                              height={Math.abs(rectDraw.y2 - rectDraw.y1)}
+                              fill="rgba(85, 85, 85, 0.3)"
+                              stroke={ACCENT_400}
+                              strokeWidth={2 / zoom}
+                              strokeDasharray={`${6 / zoom} ${4 / zoom}`}
+                              pointerEvents="none"
+                            />
+                          )}
+
                           {/* Selection & Point editing */}
                           {svgPaths.map((path) =>
                             (path.id === selectedPathId && path.visible !== false && !path.locked)
@@ -1887,7 +2709,7 @@ ${pathsSvg}
                                     fill="none"
                                     stroke={selectedPathId === path.id ? 'transparent' : 'transparent'}
                                     strokeWidth={8 / zoom}
-                                    onClick={(e) => { e.stopPropagation(); setSelectedPathId(path.id); if (!e.ctrlKey && !e.metaKey) setSelectedPoints(new Set()); }}
+                                    onClick={(e) => { e.stopPropagation(); if (ignoreClickRef.current) return; setSelectedPathId(path.id); if (!e.ctrlKey && !e.metaKey) setSelectedPoints(new Set()); }}
                                     style={{ cursor: 'pointer' }}
                                   />
                                   {editMode && selectedPathId === path.id && points.map((pt, i) => {

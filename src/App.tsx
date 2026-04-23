@@ -849,6 +849,7 @@ export default function App() {
         zoomRef={zoomRef}
         panRef={panRef}
         onSelect={handleSelect}
+        language={state.language}
       />
     </div>
   );
