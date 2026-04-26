@@ -11,6 +11,9 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@gltf-transform/core": "^4.3.0",
+    "@gltf-transform/extensions": "^4.3.0",
+    "@gltf-transform/functions": "^4.3.0",
     "@google/genai": "^1.46.0",
     "@react-three/csg": "^4.0.0",
     "@react-three/drei": "^10.7.7",
@@ -21,8 +24,10 @@
     "@types/three": "^0.183.1",
     "@vitejs/plugin-react": "^5.0.4",
     "dotenv": "^17.2.3",
+    "draco3d": "^1.5.7",
     "express": "^4.21.2",
     "lucide-react": "^0.546.0",
+    "meshoptimizer": "^1.1.1",
     "motion": "^12.23.24",
     "n8ao": "github:n8python/n8AO",
     "paper": "^0.12.18",

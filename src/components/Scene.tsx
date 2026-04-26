@@ -20,7 +20,8 @@ import { ACCENT_400, accentRgba } from '../theme';
 
 import { selectionMeshesRef } from '../selectionRegistry';
 import * as THREE from 'three';
-import { Sun, Zap, Circle, Lightbulb, Lock, Unlock } from 'lucide-react';
+import { Sun, Zap, Circle, Lightbulb, Lock, Unlock, RefreshCw, ChevronLeft } from 'lucide-react';
+import { useModelLibrary } from './AssetLibrary';
 
 interface SceneProps {
   state: AppState;
@@ -708,15 +709,19 @@ function LightWithHelper({
     }
   }, [config.type, scene, config.position, config.rotation]);
 
+  const _lp = useMemo(() => new THREE.Vector3(), []);
+  const _lq = useMemo(() => new THREE.Quaternion(), []);
+  const _ldir = useMemo(() => new THREE.Vector3(), []);
+
   useFrame(() => {
     if (lightRef.current && (config.type === 'spot' || config.type === 'directional')) {
       const light = lightRef.current;
       if (light.target) {
-        const lp = new THREE.Vector3(), lq = new THREE.Quaternion();
         light.updateMatrixWorld(true);
-        light.getWorldPosition(lp);
-        light.getWorldQuaternion(lq);
-        light.target.position.copy(lp.clone().add(new THREE.Vector3(0, 0, -1).applyQuaternion(lq)));
+        light.getWorldPosition(_lp);
+        light.getWorldQuaternion(_lq);
+        _ldir.set(0, 0, -1).applyQuaternion(_lq);
+        light.target.position.copy(_lp).add(_ldir);
         light.target.updateMatrixWorld();
       }
     }
@@ -832,7 +837,8 @@ export const Scene = forwardRef<any, SceneProps>(({
   }, []);
 
   const [isDragging, setIsDragging] = useState(false);
-  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, itemId: string, isLocked: boolean } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, itemId: string, isLocked: boolean, isModel?: boolean, isReplaceMode?: boolean } | null>(null);
+  const [models] = useModelLibrary();
   const [meshes, setMeshes] = useState<{ [id: string]: THREE.Mesh }>({});
   const [selectionBox, setSelectionBox] = useState<{ start: [number, number], end: [number, number] } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -892,6 +898,10 @@ export const Scene = forwardRef<any, SceneProps>(({
 
   const ZoomTracker = () => {
     const { scene, camera, gl } = useThree();
+    const _zoomRaycaster = useMemo(() => new THREE.Raycaster(), []);
+    const _zoomMouse = useMemo(() => new THREE.Vector2(0, 0), []);
+    const _zoomPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
+    const _zoomIntersect = useMemo(() => new THREE.Vector3(), []);
     
     useEffect(() => {
       viewRef.current = { camera, gl };
@@ -926,14 +936,12 @@ export const Scene = forwardRef<any, SceneProps>(({
 
       // 2. ARC-FIX: Calculate floor (Y=0) intersection AT SCREEN CENTER for spawning
       if (viewCenterRef) {
-        const raycaster = new THREE.Raycaster();
-        raycaster.setFromCamera(new THREE.Vector2(0, 0), state.camera);
-        const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-        const intersectPoint = new THREE.Vector3();
+        _zoomRaycaster.setFromCamera(_zoomMouse, state.camera);
+        _zoomPlane.set(_zoomPlane.normal.set(0, 1, 0), 0);
         
-        if (raycaster.ray.intersectPlane(groundPlane, intersectPoint)) {
+        if (_zoomRaycaster.ray.intersectPlane(_zoomPlane, _zoomIntersect)) {
           // Point on the floor at screen center
-          viewCenterRef.current = [intersectPoint.x, 0, intersectPoint.z];
+          viewCenterRef.current = [_zoomIntersect.x, 0, _zoomIntersect.z];
         } else if (controlsRef.current) {
           // Fallback to orbit target if camera is looking away from floor
           const target = (controlsRef.current as any).target;
@@ -1002,7 +1010,8 @@ export const Scene = forwardRef<any, SceneProps>(({
             x: e.clientX,
             y: e.clientY,
             itemId: item.id,
-            isLocked: !!item.locked
+            isLocked: !!item.locked,
+            isModel: item.type === 'model'
           });
           return;
         }
@@ -1303,28 +1312,75 @@ export const Scene = forwardRef<any, SceneProps>(({
       {/* Context Menu */}
       {contextMenu && (
         <div 
-          className="fixed z-[9999] bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl py-2 overflow-hidden min-w-[140px] animate-in fade-in zoom-in duration-200 pointer-events-auto"
-          style={{ top: contextMenu.y + 5, left: contextMenu.x }}
+          className="fixed z-[9999] bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl py-2 overflow-hidden animate-in fade-in zoom-in duration-200 pointer-events-auto"
+          style={{ 
+            top: contextMenu.y + 5, 
+            left: contextMenu.x,
+            width: contextMenu.isReplaceMode ? '200px' : 'min-content',
+            minWidth: '140px'
+          }}
           onClick={(e) => e.stopPropagation()}
         >
-          <button 
-            onClick={() => {
-              onUpdate(contextMenu.itemId, { locked: !contextMenu.isLocked });
-              setContextMenu(null);
-            }}
-            className="w-full px-4 py-2.5 text-[10px] font-black text-white hover:bg-teal-500 hover:text-black transition-all flex items-center justify-between gap-4 uppercase tracking-[0.1em] text-left"
-          >
-            <div className="flex items-center gap-2">
-              {contextMenu.isLocked ? <Unlock size={12} className="text-teal-500" /> : <Lock size={12} className="text-white/40" />}
-              <span>{contextMenu.isLocked ? (state.language === 'ko' ? '잠금 해제' : 'Unlock') : (state.language === 'ko' ? '레이어 잠금' : 'Lock Layer')}</span>
+          {contextMenu.isReplaceMode ? (
+            <div className="flex flex-col">
+              <div className="flex items-center px-2 pb-2 mb-2 border-b border-white/10">
+                <button 
+                  onClick={() => setContextMenu(prev => prev ? { ...prev, isReplaceMode: false } : null)}
+                  className="p-1 hover:bg-white/10 rounded text-white/50 hover:text-white transition-colors"
+                >
+                  <ChevronLeft size={14} />
+                </button>
+                <span className="text-[10px] font-black text-white ml-2 uppercase tracking-widest">{state.language === 'ko' ? '에셋 교체' : 'Replace Asset'}</span>
+              </div>
+              <div className="max-h-[200px] overflow-y-auto px-1 custom-scrollbar">
+                {models.map(model => (
+                  <button
+                    key={model.id}
+                    onClick={() => {
+                      onUpdate(contextMenu.itemId, { url: model.url, name: model.name, type: 'model' });
+                      setContextMenu(null);
+                    }}
+                    className="w-full px-3 py-2 text-left text-[10px] font-bold text-white/60 hover:text-white hover:bg-teal-500/20 rounded-lg transition-colors truncate uppercase"
+                  >
+                    {model.name}
+                  </button>
+                ))}
+              </div>
             </div>
-          </button>
-          
-          <div className="mx-2 mt-1 pt-1 border-t border-white/5">
-             <div className="px-2 py-1 text-[10px] text-white/20 font-black uppercase tracking-widest leading-loose">
-               Shortcut: <span className="text-white/40">Ctrl+Shift+L</span>
-             </div>
-          </div>
+          ) : (
+            <>
+              <button 
+                onClick={() => {
+                  onUpdate(contextMenu.itemId, { locked: !contextMenu.isLocked });
+                  setContextMenu(null);
+                }}
+                className="w-full px-4 py-2.5 text-[10px] font-black text-white hover:bg-teal-500 hover:text-black transition-all flex items-center justify-between gap-4 uppercase tracking-[0.1em] text-left whitespace-nowrap"
+              >
+                <div className="flex items-center gap-2">
+                  {contextMenu.isLocked ? <Unlock size={12} className="text-teal-500" /> : <Lock size={12} className="text-white/40" />}
+                  <span>{contextMenu.isLocked ? (state.language === 'ko' ? '잠금 해제' : 'Unlock') : (state.language === 'ko' ? '레이어 잠금' : 'Lock Layer')}</span>
+                </div>
+              </button>
+              
+              {contextMenu.isModel && (
+                <button 
+                  onClick={() => setContextMenu(prev => prev ? { ...prev, isReplaceMode: true } : null)}
+                  className="w-full px-4 py-2.5 text-[10px] font-black text-white hover:bg-teal-500 hover:text-black transition-all flex items-center justify-between gap-4 uppercase tracking-[0.1em] text-left whitespace-nowrap"
+                >
+                  <div className="flex items-center gap-2">
+                    <RefreshCw size={12} className="text-white/40" />
+                    <span>{state.language === 'ko' ? '에셋 교체' : 'Replace Asset'}</span>
+                  </div>
+                </button>
+              )}
+              
+              <div className="mx-2 mt-1 pt-1 border-t border-white/5">
+                 <div className="px-2 py-1 text-[10px] text-white/20 font-black uppercase tracking-widest leading-loose">
+                   Shortcut: <span className="text-white/40">Ctrl+Shift+L</span>
+                 </div>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

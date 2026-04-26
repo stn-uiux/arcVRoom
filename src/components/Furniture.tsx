@@ -806,14 +806,44 @@ export const Furniture = React.memo(({
   const _tempRot = useMemo(() => new THREE.Euler(), []);
   const _lastQuat = useMemo(() => new THREE.Quaternion(), []);
   const _currentQuat = useMemo(() => new THREE.Quaternion(), []);
+  // Track if position/rotation actually changed to skip collision checks during camera movement
+  const _prevPos = useMemo(() => new THREE.Vector3(...item.position), []);
+  const _prevRot = useMemo(() => new THREE.Euler(...item.rotation), []);
+  // Grace period: skip collision for first N frames after spawn so geometry/BVH can settle
+  const _spawnGrace = useRef(10);
 
   useFrame(() => {
-    // Optimization: Only run heavy collision logic if object is selected OR was already colliding
+    // Countdown spawn grace
+    if (_spawnGrace.current > 0) {
+      _spawnGrace.current--;
+      // Sync tracking so first real frame doesn't see a phantom move
+      if (groupRef.current) {
+        _prevPos.copy(groupRef.current.position);
+        _prevRot.copy(groupRef.current.rotation);
+        lastValidPos.current.copy(groupRef.current.position);
+        lastValidRot.current.copy(groupRef.current.rotation);
+      }
+      return;
+    }
+
+    // Early exit: no mesh, no others, or not relevant
     if (!meshRef.current || otherMeshes.length === 0 || (!isSelected && !isColliding)) {
       return;
     }
-    const currentPos = groupRef.current.position.clone();
-    const currentRot = groupRef.current.rotation.clone();
+
+    const currentPos = groupRef.current.position;
+    const currentRot = groupRef.current.rotation;
+
+    // PERF FIX: Only run expensive collision checks if the object's transform actually changed
+    // (i.e., user is dragging it), NOT when only the camera is moving
+    const posChanged = !_prevPos.equals(currentPos);
+    const rotChanged = _prevRot.x !== currentRot.x || _prevRot.y !== currentRot.y || _prevRot.z !== currentRot.z;
+    _prevPos.copy(currentPos);
+    _prevRot.copy(currentRot);
+
+    if (!posChanged && !rotChanged) {
+      return; // Camera is moving but object is still — skip collision
+    }
 
     let colliding = checkCollisionAt(currentPos, currentRot, groupRef.current.scale);
     

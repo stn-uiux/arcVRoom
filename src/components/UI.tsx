@@ -58,6 +58,7 @@ import { AssetLibrary } from './AssetLibrary';
 import { MaterialsLibrary, usePresetMaterials } from './MaterialsLibrary';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FloorplanToSvg } from './FloorplanToSvg';
+import { GLBCompressor } from './GLBCompressor';
 import { ACCENT_400, accentRgba } from '../theme';
 
 interface UIProps {
@@ -133,6 +134,7 @@ export const UI: React.FC<UIProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'objects' | 'lights' | 'materials' | 'settings'>('objects');
   const [showFloorplanModal, setShowFloorplanModal] = useState(false);
+  const [showCompressor, setShowCompressor] = useState(false);
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [editingNameValue, setEditingNameValue] = useState("");
   const [jumpToMaterialId, setJumpToMaterialId] = useState<string | null>(null);
@@ -1856,7 +1858,7 @@ export const UI: React.FC<UIProps> = ({
                   <div className="space-y-2">
                     <div className="flex flex-col gap-1.5">
                       <div className="text-[10px] font-black text-white/30 uppercase tracking-[0.1em] px-1.5 mb-1 flex items-center gap-2">
-                        <Download size={10} /> {t('GLTF Export Options', 'GLTF 내보내기 옵션')}
+                        <Download size={10} /> {t('GLB Export Options', 'GLB 내보내기 옵션')}
                       </div>
                       <div className="grid grid-cols-1 gap-1.5">
                         <button
@@ -1884,6 +1886,12 @@ export const UI: React.FC<UIProps> = ({
                             <Lightbulb size={12} /> {t('Lights Only', '조명만')}
                           </button>
                         </div>
+                        <button
+                          onClick={() => setShowCompressor(true)}
+                          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-teal-500/10 hover:bg-teal-500 text-teal-500 hover:text-black font-black uppercase tracking-widest rounded-xl text-[10px] transition-all border border-teal-500/20 group mt-1"
+                        >
+                          <Zap size={12} className="text-teal-500 group-hover:text-black" /> {t('GLB Compression', 'GLB 압축')}
+                        </button>
                       </div>
                     </div>
 
@@ -1948,6 +1956,11 @@ export const UI: React.FC<UIProps> = ({
         }}
         language={state.language}
         onLanguageChange={(lang) => onUpdateState({ language: lang })}
+      />
+      <GLBCompressor 
+        isOpen={showCompressor} 
+        onClose={() => setShowCompressor(false)} 
+        language={state.language}
       />
     </>
   );

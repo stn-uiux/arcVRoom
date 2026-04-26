@@ -408,17 +408,20 @@ export default function App() {
 
     exporter.parse(
       exportScene,
-      (gltf) => {
-        const output = JSON.stringify(gltf);
-        const blob = new Blob([output], { type: 'application/octet-stream' });
+      (result) => {
+        const blob = result instanceof ArrayBuffer 
+          ? new Blob([result], { type: 'model/gltf-binary' })
+          : new Blob([JSON.stringify(result)], { type: 'application/json' });
+          
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `export-${mode}-${new Date().toISOString().slice(0, 10)}.gltf`;
+        const ext = result instanceof ArrayBuffer ? 'glb' : 'gltf';
+        link.download = `export-${mode}-${new Date().toISOString().slice(0, 10)}.${ext}`;
         link.click();
       },
       (error) => console.error('Export failed:', error),
-      { binary: false }
+      { binary: true }
     );
   };
 
