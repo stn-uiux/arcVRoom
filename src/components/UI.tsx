@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import {
   Plus,
@@ -42,7 +42,10 @@ import {
   Eye,
   EyeOff,
   MousePointer,
-  Library
+  Library,
+  CheckCircle,
+  Loader2,
+  ExternalLink
 } from 'lucide-react';
 import {
   FurnitureType,
@@ -59,6 +62,7 @@ import { MaterialsLibrary, usePresetMaterials } from './MaterialsLibrary';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FloorplanToSvg } from './FloorplanToSvg';
 import { GLBCompressor } from './GLBCompressor';
+import { useGLBCompression, FileState } from './useGLBCompression';
 import { ACCENT_400, accentRgba } from '../theme';
 
 interface UIProps {
@@ -135,6 +139,44 @@ export const UI: React.FC<UIProps> = ({
   const [activeTab, setActiveTab] = useState<'objects' | 'lights' | 'materials' | 'settings'>('objects');
   const [showFloorplanModal, setShowFloorplanModal] = useState(false);
   const [showCompressor, setShowCompressor] = useState(false);
+  const {
+    files: compressionFiles,
+    addFiles: addCompressionFiles,
+    removeFile: removeCompressionFile,
+    clearFiles: clearCompressionFiles,
+    setFiles: setCompressionFiles
+  } = useGLBCompression();
+
+  const [showCompletionToast, setShowCompletionToast] = useState(false);
+  const [lastCompletedCount, setLastCompletedCount] = useState(0);
+
+  const downloadCompressedFile = useCallback((file: FileState) => {
+    if (!file.compressedBuffer) return;
+    const blob = new Blob([file.compressedBuffer], { type: 'model/gltf-binary' });
+    const url = URL.createObjectURL(blob);
+    const a = window.document.createElement('a');
+    a.href = url;
+    a.download = file.name.replace('.glb', '_optimized.glb');
+    a.click();
+    URL.revokeObjectURL(url);
+  }, []);
+
+  useEffect(() => {
+    const completed = compressionFiles.filter(f => f.status === 'completed').length;
+    const processing = compressionFiles.filter(f => f.status === 'processing' || f.status === 'pending').length;
+
+    if (completed > lastCompletedCount && processing === 0 && !showCompressor) {
+      setShowCompletionToast(true);
+      const timer = setTimeout(() => setShowCompletionToast(false), 10000);
+      return () => clearTimeout(timer);
+    }
+    setLastCompletedCount(completed);
+  }, [compressionFiles, lastCompletedCount, showCompressor]);
+
+  const isCompressing = compressionFiles.some(f => f.status === 'processing' || f.status === 'pending');
+  const totalCompressionProgress = compressionFiles.length > 0
+    ? compressionFiles.reduce((acc, f) => acc + f.progress, 0) / compressionFiles.length
+    : 0;
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [editingNameValue, setEditingNameValue] = useState("");
   const [jumpToMaterialId, setJumpToMaterialId] = useState<string | null>(null);
@@ -445,10 +487,15 @@ export const UI: React.FC<UIProps> = ({
         <AnimatePresence>
           {state.items.length === 0 && (
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, y: 20, x: 'calc(-50% - 180px)' }}
+              animate={{
+                opacity: 1,
+                y: 20,
+                x: sidebarOpen ? 'calc(-50% - 180px)' : '-50%'
+              }}
+              transition={{ type: 'spring', stiffness: 50, damping: 20 }}
               exit={{ opacity: 0, y: 20 }}
-              className="absolute bottom-10 left-1/2 -translate-x-1/2 pointer-events-auto"
+              className="absolute bottom-10 left-1/2 pointer-events-auto"
             >
               <div className="glass-panel px-8 py-3 rounded-full border border-white/10 opacity-90 flex items-center gap-3 shadow-2xl">
                 <Upload className="w-4 h-4 text-teal-500" />
@@ -919,8 +966,8 @@ export const UI: React.FC<UIProps> = ({
                             {(() => {
                               const lowerId = (selectedItem.id || '').toLowerCase();
                               const lowerGroup = (selectedItem.groupId || '').toLowerCase();
-                              const isWall = (lowerId.includes('wall') || lowerGroup.includes('wall')) && 
-                                             !lowerId.includes('floor') && !lowerId.includes('ceiling');
+                              const isWall = (lowerId.includes('wall') || lowerGroup.includes('wall')) &&
+                                !lowerId.includes('floor') && !lowerId.includes('ceiling');
                               const isBox = selectedItem.type === 'box';
                               if (!isWall && !isBox) return null;
                               return (
@@ -936,10 +983,10 @@ export const UI: React.FC<UIProps> = ({
 
                           </div>
 
-                          
+
                           {selectedItem.type === 'box' && (
                             <div className="space-y-4 pt-4 border-t border-white/5 animate-in slide-in-from-top-2 duration-300">
-                                                            <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2">
                                 <div className="w-3 h-3 text-teal-500/40">
                                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="4" /></svg>
                                 </div>
@@ -1955,11 +2002,90 @@ export const UI: React.FC<UIProps> = ({
         language={state.language}
         onLanguageChange={(lang) => onUpdateState({ language: lang })}
       />
-      <GLBCompressor 
-        isOpen={showCompressor} 
-        onClose={() => setShowCompressor(false)} 
+      <GLBCompressor
+        isOpen={showCompressor}
+        onClose={() => setShowCompressor(false)}
         language={state.language}
+        files={compressionFiles}
+        onAddFiles={addCompressionFiles}
+        onRemoveFile={removeCompressionFile}
+        onClearFiles={clearCompressionFiles}
+        onDownloadFile={downloadCompressedFile}
       />
+
+      <AnimatePresence>
+        {isCompressing && !showCompressor && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, right: '384px' }}
+            animate={{
+              opacity: 1,
+              y: 0,
+              right: sidebarOpen ? '384px' : '24px'
+            }}
+            exit={{ opacity: 0, y: 20 }}
+            onClick={() => setShowCompressor(true)}
+            className="fixed bottom-6 z-[9000] bg-[#0a0a0a]/80 backdrop-blur-xl border border-white/10 rounded-full py-2 px-5 flex items-center gap-4 shadow-2xl cursor-pointer hover:bg-[#111]/90 transition-all group overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-teal-500/5 group-hover:bg-teal-500/10 transition-colors" />
+            <Loader2 className="relative w-3.5 h-3.5 text-teal-500 animate-spin" />
+            <div className="relative flex items-center gap-3">
+              <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.15em] whitespace-nowrap">
+                {t('Optimizing Assets', '에셋 최적화 중')}
+              </span>
+              <div className="w-24 h-1 bg-white/5 rounded-full overflow-hidden border border-white/5">
+                <motion.div
+                  className="h-full bg-teal-500 shadow-[0_0_8px_rgba(45,212,191,0.5)]"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${totalCompressionProgress}%` }}
+                  transition={{ type: 'spring', stiffness: 50, damping: 20 }}
+                />
+              </div>
+              <span className="text-teal-500 font-mono font-black text-[10px] min-w-[32px] text-right">
+                {Math.round(totalCompressionProgress)}%
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showCompletionToast && !isCompressing && !showCompressor && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9, right: '384px' }}
+            animate={{
+              opacity: 1,
+              y: 0,
+              scale: 1,
+              right: sidebarOpen ? '384px' : '24px'
+            }}
+            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            className="fixed bottom-6 z-[9000] bg-[#0a0a0a]/95 backdrop-blur-2xl border border-teal-500/30 rounded-3xl p-6 flex flex-col gap-4 shadow-2xl min-w-[320px]"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-green-500/20 rounded-2xl flex items-center justify-center border border-green-500/30">
+                <CheckCircle className="w-6 h-6 text-green-500" />
+              </div>
+              <div className="flex flex-col">
+                <h4 className="text-white font-bold text-sm uppercase tracking-tight">
+                  {t('Compression Completed', '압축 최적화 완료')}
+                </h4>
+                <p className="text-white/40 text-[10px] font-medium">
+                  {t('Your files are ready', '파일 최적화가 완료되었습니다.')}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setShowCompressor(true); setShowCompletionToast(false); }}
+                className="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-[11px] font-bold uppercase tracking-widest py-3 rounded-xl flex items-center justify-center gap-2 transition-all"
+              >
+                <ExternalLink size={14} className="text-teal-500" />
+                {t('View', '모달 이동')}
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 };

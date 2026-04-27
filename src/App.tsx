@@ -8,7 +8,7 @@ import * as THREE from 'three';
 // @ts-ignore
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader';
 import { v4 as uuidv4 } from 'uuid';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 // @ts-ignore
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter';
 // @ts-ignore
@@ -18,7 +18,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
-import { Box } from 'lucide-react';
+import { Box, Loader2 } from 'lucide-react';
 
 const staticTextures: TextureConfig[] = [];
 
@@ -73,6 +73,7 @@ export default function App() {
   const [history, setHistory] = useState<AppState[]>([]);
   const [redoStack, setRedoStack] = useState<AppState[]>([]);
   const [fitSignal, setFitSignal] = useState(0);
+  const [exportProgress, setExportProgress] = useState<{ active: boolean, type: string, progress: number } | null>(null);
   const zoomRef = useRef<HTMLDivElement>(null);
   const panRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<any>(null);
@@ -351,14 +352,19 @@ export default function App() {
   };
 
   const exportScene = (mode: 'all' | 'objects' | 'lights' | 'json' = 'json') => {
+    setExportProgress({ active: true, type: mode === 'json' ? 'JSON' : 'GLB', progress: 0 });
+    
     if (mode === 'json') {
-      const data = JSON.stringify(state, null, 2);
-      const blob = new Blob([data], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `scene-${new Date().toISOString().slice(0, 10)}.json`;
-      link.click();
+      setTimeout(() => {
+        const data = JSON.stringify(state, null, 2);
+        const blob = new Blob([data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `scene-${new Date().toISOString().slice(0, 10)}.json`;
+        link.click();
+        setExportProgress(null);
+      }, 500);
       return;
     }
 
@@ -409,18 +415,25 @@ export default function App() {
     exporter.parse(
       exportScene,
       (result) => {
-        const blob = result instanceof ArrayBuffer 
-          ? new Blob([result], { type: 'model/gltf-binary' })
-          : new Blob([JSON.stringify(result)], { type: 'application/json' });
-          
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        const ext = result instanceof ArrayBuffer ? 'glb' : 'gltf';
-        link.download = `export-${mode}-${new Date().toISOString().slice(0, 10)}.${ext}`;
-        link.click();
+        setExportProgress({ active: true, type: mode === 'all' ? 'GLB' : 'GLB', progress: 90 });
+        setTimeout(() => {
+          const blob = result instanceof ArrayBuffer 
+            ? new Blob([result], { type: 'model/gltf-binary' })
+            : new Blob([JSON.stringify(result)], { type: 'application/json' });
+            
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          const ext = result instanceof ArrayBuffer ? 'glb' : 'gltf';
+          link.download = `export-${mode}-${new Date().toISOString().slice(0, 10)}.${ext}`;
+          link.click();
+          setExportProgress(null);
+        }, 800);
       },
-      (error) => console.error('Export failed:', error),
+      (error) => {
+        console.error('Export failed:', error);
+        setExportProgress(null);
+      },
       { binary: true }
     );
   };
@@ -847,7 +860,6 @@ export default function App() {
         onExport={exportScene}
         onImport={handleImport}
         staticTextures={staticTextures}
-
         selectedSubId={selectedSubId}
         setSelectedSubId={setSelectedSubId}
         zoomRef={zoomRef}
@@ -855,6 +867,52 @@ export default function App() {
         onSelect={handleSelect}
         language={state.language}
       />
+
+      {/* Export Progress Modal */}
+      <AnimatePresence>
+        {exportProgress && (
+          <div className="fixed inset-0 z-[20000] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-80 bg-[#0a0a0a] border border-white/10 rounded-[32px] p-8 flex flex-col items-center text-center shadow-2xl"
+            >
+              <div className="w-16 h-16 bg-teal-500/10 rounded-full flex items-center justify-center mb-6 relative">
+                <div className="absolute inset-0 border-2 border-teal-500/20 rounded-full" />
+                <motion.div 
+                  className="absolute inset-0 border-2 border-teal-500 rounded-full"
+                  initial={{ pathLength: 0 }}
+                  animate={{ pathLength: exportProgress.progress / 100 }}
+                  transition={{ duration: 0.5 }}
+                  style={{ rotate: -90, position: 'absolute', inset: 0 }}
+                />
+                <Loader2 className="w-8 h-8 text-teal-500 animate-spin" />
+              </div>
+              <h3 className="text-white font-bold uppercase tracking-widest mb-2">
+                {state.language === 'ko' ? `${exportProgress.type} 내보내는 중...` : `Exporting ${exportProgress.type}...`}
+              </h3>
+              <p className="text-white/40 text-[10px] font-bold uppercase tracking-tight">
+                {state.language === 'ko' ? '잠시만 기다려 주세요' : 'Please wait a moment'}
+              </p>
+              
+              <div className="mt-8 w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                <motion.div 
+                  className="h-full bg-teal-500"
+                  initial={{ width: "0%" }}
+                  animate={{ width: `${exportProgress.progress || 10}%` }}
+                />
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

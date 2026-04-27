@@ -1,57 +1,37 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   X,
   UploadCloud,
   Download,
-  CheckCircle,
-  Loader2,
   Trash2,
   Zap,
-  Eye,
-  Info,
-  Settings,
-  Layers,
-  Wand2,
   HelpCircle,
   FileText
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { WebIO, Document, Transform } from '@gltf-transform/core';
-import { KHRONOS_EXTENSIONS } from '@gltf-transform/extensions';
-import {
-  weld,
-  dedup,
-  resample,
-  prune,
-  simplify,
-  instance,
-  flatten,
-  join,
-  draco
-} from '@gltf-transform/functions';
-import { MeshoptEncoder, MeshoptSimplifier } from 'meshoptimizer';
-import draco3d from 'draco3d';
-
-interface FileState {
-  id: string;
-  name: string;
-  originalBuffer: Uint8Array;
-  originalSize: number;
-  compressedBuffer: Uint8Array | null;
-  compressedSize: number | null;
-  progress: number;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  error?: string;
-}
+import { motion } from 'framer-motion';
+import { FileState, CompressionOptions } from './useGLBCompression';
 
 interface GLBCompressorProps {
   isOpen: boolean;
   onClose: () => void;
   language?: 'en' | 'ko';
+  files: FileState[];
+  onAddFiles: (files: File[], options: CompressionOptions) => void;
+  onRemoveFile: (id: string) => void;
+  onClearFiles: () => void;
+  onDownloadFile: (file: FileState) => void;
 }
 
-export const GLBCompressor: React.FC<GLBCompressorProps> = ({ isOpen, onClose, language = 'ko' }) => {
-  const [files, setFiles] = useState<FileState[]>([]);
+export const GLBCompressor: React.FC<GLBCompressorProps> = ({ 
+  isOpen, 
+  onClose, 
+  language = 'ko',
+  files,
+  onAddFiles,
+  onRemoveFile,
+  onClearFiles,
+  onDownloadFile
+}) => {
   const [isDragging, setIsDragging] = useState(false);
 
   // Options
@@ -85,202 +65,31 @@ export const GLBCompressor: React.FC<GLBCompressorProps> = ({ isOpen, onClose, l
     return `-${((diff / orig) * 100).toFixed(1)}%`;
   };
 
-  // Custom Texture Compress Transform from 'zip' project
-  const customTextureCompress = (options: { targetFormat: string, resize: number }): Transform => {
-    return async (gltfDoc: Document) => {
-      const textures = gltfDoc.getRoot().listTextures();
-      for (const texture of textures) {
-        const mimeType = texture.getMimeType();
-        const image = texture.getImage();
-        if (!image) continue;
-
-        const blob = new Blob([image], { type: mimeType });
-        const img = new Image();
-        img.src = URL.createObjectURL(blob);
-        await new Promise((resolve, reject) => {
-          img.onload = resolve;
-          img.onerror = reject;
-        });
-
-        const MAX_SIZE = options.resize;
-        let width = img.width;
-        let height = img.height;
-        if (width > MAX_SIZE || height > MAX_SIZE) {
-          if (width > height) {
-            height = Math.round(height * (MAX_SIZE / width));
-            width = MAX_SIZE;
-          } else {
-            width = Math.round(width * (MAX_SIZE / height));
-            height = MAX_SIZE;
-          }
-        }
-
-        const canvas = window.document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-        }
-
-        const targetMime = options.targetFormat === 'webp' ? 'image/webp' :
-          options.targetFormat === 'jpeg' ? 'image/jpeg' : 'image/png';
-
-        const resultBlob = await new Promise<Blob | null>((resolve) => {
-          canvas.toBlob(resolve, targetMime, 0.75);
-        });
-
-        if (resultBlob) {
-          const arrayBuffer = await resultBlob.arrayBuffer();
-          texture.setImage(new Uint8Array(arrayBuffer));
-          texture.setMimeType(targetMime);
-          texture.setURI(texture.getURI().replace(/\.[a-zA-Z0-9]+$/, `.${options.targetFormat}`));
-        }
-        URL.revokeObjectURL(img.src);
-      }
-    };
+  const currentOptions: CompressionOptions = {
+    textureFormat,
+    textureSize,
+    removeDuplicates,
+    removeUnused,
+    dracoEnabled,
+    simplifyEnabled,
+    simplifyRatio,
+    instanceEnabled,
+    flattenEnabled,
+    joinEnabled,
+    weldEnabled
   };
 
-  const processFile = async (fileState: FileState) => {
-    try {
-      const io = new WebIO().registerExtensions(KHRONOS_EXTENSIONS);
-
-      const setFileProgress = (p: number, s: string) => {
-        setFiles(prev => prev.map(f =>
-          f.id === fileState.id ? { ...f, progress: p, status: s as any } : f
-        ));
-      };
-
-      setFileProgress(10, 'processing');
-      const doc = await io.readBinary(fileState.originalBuffer);
-
-      const transforms = [];
-
-      if (flattenEnabled) transforms.push(flatten());
-      if (instanceEnabled) transforms.push(instance());
-      if (joinEnabled) transforms.push(join());
-      if (weldEnabled) transforms.push(weld());
-
-      if (simplifyEnabled) {
-        await MeshoptSimplifier.ready;
-        transforms.push(simplify({ simplifier: MeshoptSimplifier, ratio: simplifyRatio, error: 0.01 }));
-      }
-
-      transforms.push(resample());
-
-      const size = parseInt(textureSize);
-      if (!isNaN(size)) {
-        transforms.push(customTextureCompress({
-          targetFormat: textureFormat,
-          resize: size
-        }));
-      }
-
-      if (removeDuplicates) transforms.push(dedup());
-      if (removeUnused) transforms.push(prune({ keepAttributes: false, keepLeaves: false }));
-
-      if (dracoEnabled) {
-        transforms.push(draco({
-          method: 'edgebreaker',
-          quantizePositionBits: 14,
-          quantizeNormalBits: 10,
-          quantizeColorBits: 8,
-          quantizeTexcoordBits: 12,
-          quantizeGenericBits: 8,
-          encodeSpeed: 5,
-          decodeSpeed: 5,
-        }));
-      }
-
-      setFileProgress(40, 'processing');
-      await doc.transform(...transforms);
-
-      if (dracoEnabled) {
-        setFileProgress(70, 'processing');
-        try {
-          const decoderModule = await draco3d.createDecoderModule({
-            locateFile: (file: string) => `https://unpkg.com/draco3d@1.5.7/${file}`
-          });
-          const encoderModule = await draco3d.createEncoderModule({
-            locateFile: (file: string) => `https://unpkg.com/draco3d@1.5.7/${file}`
-          });
-          io.registerDependencies({
-            'draco3d.decoder': decoderModule,
-            'draco3d.encoder': encoderModule,
-          });
-        } catch (e) {
-          console.error('Failed to load draco dependencies', e);
-        }
-      }
-
-      setFileProgress(85, 'processing');
-      const optimizedBuffer = await io.writeBinary(doc);
-
-      setFiles(prev => prev.map(f =>
-        f.id === fileState.id ? {
-          ...f,
-          compressedBuffer: optimizedBuffer,
-          compressedSize: optimizedBuffer.byteLength,
-          progress: 100,
-          status: 'completed'
-        } : f
-      ));
-    } catch (err: any) {
-      console.error(err);
-      setFiles(prev => prev.map(f =>
-        f.id === fileState.id ? { ...f, progress: 0, status: 'failed', error: err.message } : f
-      ));
-    }
-  };
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = event.target.files;
     if (!selectedFiles?.length) return;
-
-    for (let i = 0; i < selectedFiles.length; i++) {
-      const file = selectedFiles[i];
-      if (!file.name.toLowerCase().endsWith('.glb')) continue;
-
-      const buffer = await file.arrayBuffer();
-      const Uint8Buffer = new Uint8Array(buffer);
-
-      const id = Math.random().toString(36).substr(2, 9);
-      const newFileState: FileState = {
-        id,
-        name: file.name,
-        originalBuffer: Uint8Buffer,
-        originalSize: Uint8Buffer.byteLength,
-        compressedBuffer: null,
-        compressedSize: null,
-        progress: 0,
-        status: 'pending'
-      };
-
-      setFiles(prev => [...prev, newFileState]);
-      processFile(newFileState);
-    }
+    onAddFiles(Array.from(selectedFiles), currentOptions);
     if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const downloadFile = (file: FileState) => {
-    if (!file.compressedBuffer) return;
-    const blob = new Blob([file.compressedBuffer], { type: 'model/gltf-binary' });
-    const url = URL.createObjectURL(blob);
-    const a = window.document.createElement('a');
-    a.href = url;
-    a.download = file.name.replace('.glb', '_optimized.glb');
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   const downloadAll = () => {
     files.forEach(f => {
-      if (f.status === 'completed') downloadFile(f);
+      if (f.status === 'completed') onDownloadFile(f);
     });
-  };
-
-  const removeFile = (id: string) => {
-    setFiles(prev => prev.filter(f => f.id !== id));
   };
 
   if (!isOpen) return null;
@@ -466,7 +275,7 @@ export const GLBCompressor: React.FC<GLBCompressorProps> = ({ isOpen, onClose, l
                   e.preventDefault();
                   setIsDragging(false);
                   if (e.dataTransfer.files?.length) {
-                    handleFileUpload({ target: { files: e.dataTransfer.files } } as any);
+                    onAddFiles(Array.from(e.dataTransfer.files), currentOptions);
                   }
                 }}
                 className={`
@@ -499,7 +308,7 @@ export const GLBCompressor: React.FC<GLBCompressorProps> = ({ isOpen, onClose, l
                     {files.length > 0 && (
                       <>
                         <button onClick={downloadAll} className="text-[9px] font-bold text-blue-500 hover:text-blue-400 uppercase tracking-tighter">Download All</button>
-                        <button onClick={() => setFiles([])} className="text-[9px] font-bold text-slate-600 hover:text-slate-400 uppercase tracking-tighter">Clear All</button>
+                        <button onClick={onClearFiles} className="text-[9px] font-bold text-slate-600 hover:text-slate-400 uppercase tracking-tighter">Clear All</button>
                       </>
                     )}
                   </div>
@@ -537,7 +346,7 @@ export const GLBCompressor: React.FC<GLBCompressorProps> = ({ isOpen, onClose, l
                                 </div>
                               ) : file.status === 'completed' ? (
                                 <button
-                                  onClick={() => downloadFile(file)}
+                                  onClick={() => onDownloadFile(file)}
                                   className="text-[9px] font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1 rounded-md text-white transition-all"
                                 >
                                   Download
@@ -545,7 +354,7 @@ export const GLBCompressor: React.FC<GLBCompressorProps> = ({ isOpen, onClose, l
                               ) : file.status === 'failed' ? (
                                 <span className="text-[8px] text-red-500 font-bold">Failed</span>
                               ) : (
-                                <button onClick={() => removeFile(file.id)} className="text-slate-700 hover:text-red-500 transition-colors">
+                                <button onClick={() => onRemoveFile(file.id)} className="text-slate-700 hover:text-red-500 transition-colors">
                                   <Trash2 size={12} />
                                 </button>
                               )}
