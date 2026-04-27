@@ -67,6 +67,7 @@ export interface FurnitureItem {
   castShadow?: boolean;
   showReflection?: boolean;
   hasGlass?: boolean;
+  showBlackTop?: boolean;
 }
 
 export interface TextureConfig {

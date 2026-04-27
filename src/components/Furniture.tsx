@@ -535,62 +535,96 @@ export const Furniture = React.memo(({
       box.getSize(size2D);
       const extrusion = item.extrusion ?? 2; // ?? preserves 0 (flat plane for ceiling/floor)
 
-      // ArcLabV: Process each shape INDIVIDUALLY then merge
+      // Second pass: Create geometries with vertex colors
       const geometries: THREE.BufferGeometry[] = [];
-      allShapes.forEach(shape => {
-        let geo: THREE.BufferGeometry;
-        if (extrusion > 0.01) {
-          geo = new THREE.ExtrudeGeometry(shape, {
-            depth: extrusion,
-            bevelEnabled: false,
-            curveSegments: 32 // Higher resolution for better CSG results
-          });
-        } else {
-          geo = new THREE.ShapeGeometry(shape, 32);
-        }
+      result.paths.forEach((path) => {
+        const pathShapes = SVGLoader.createShapes(path);
+        const isFill = path.userData?.style?.fill && path.userData.style.fill !== 'none';
+        
+        pathShapes.forEach(shape => {
+          let geo: THREE.BufferGeometry;
+          if (extrusion > 0.01) {
+            geo = new THREE.ExtrudeGeometry(shape, {
+              depth: extrusion,
+              bevelEnabled: false,
+              curveSegments: 32
+            });
+          } else {
+            geo = new THREE.ShapeGeometry(shape, 32);
+          }
 
-        // 1. ArcLabV coordinate transform: flip Y and center
-        geo.scale(1, -1, 1);
-        geo.translate(-center2D.x, center2D.y, 0);
-        geo.rotateX(-Math.PI / 2);
+          // Transform coordinate: flip Y and center
+          geo.scale(1, -1, 1);
+          geo.translate(-center2D.x, center2D.y, 0);
+          geo.rotateX(-Math.PI / 2);
 
-        // 2. ArcLabV: Handle Hollow (open top/bottom) per-shape BEFORE merge
-        if (item.isHollow && extrusion > 0.01) {
-          const nonIndexed = geo.toNonIndexed();
-          const posAttr = nonIndexed.getAttribute('position');
-          const normAttr = nonIndexed.getAttribute('normal');
-          const uvAttr = nonIndexed.getAttribute('uv');
-          const filteredPositions: number[] = [];
-          const filteredNormals: number[] = [];
-          const filteredUvs: number[] = [];
+          // Handle Hollow (open top/bottom)
+          if (item.isHollow && extrusion > 0.01) {
+            const nonIndexed = geo.toNonIndexed();
+            const posAttr = nonIndexed.getAttribute('position');
+            const normAttr = nonIndexed.getAttribute('normal');
+            const uvAttr = nonIndexed.getAttribute('uv');
+            const filteredPositions: number[] = [];
+            const filteredNormals: number[] = [];
+            const filteredUvs: number[] = [];
 
-          for (let i = 0; i < posAttr.count; i += 3) {
-            const ny = normAttr.getY(i);
-            if (Math.abs(ny) < 0.5) {
-              for (let j = 0; j < 3; j++) {
-                filteredPositions.push(posAttr.getX(i + j), posAttr.getY(i + j), posAttr.getZ(i + j));
-                filteredNormals.push(normAttr.getX(i + j), normAttr.getY(i + j), normAttr.getZ(i + j));
-                if (uvAttr) filteredUvs.push(uvAttr.getX(i + j), uvAttr.getY(i + j));
+            for (let i = 0; i < posAttr.count; i += 3) {
+              const ny = normAttr.getY(i);
+              if (Math.abs(ny) < 0.5) {
+                for (let j = 0; j < 3; j++) {
+                  filteredPositions.push(posAttr.getX(i + j), posAttr.getY(i + j), posAttr.getZ(i + j));
+                  filteredNormals.push(normAttr.getX(i + j), normAttr.getY(i + j), normAttr.getZ(i + j));
+                  if (uvAttr) filteredUvs.push(uvAttr.getX(i + j), uvAttr.getY(i + j));
+                }
               }
             }
+            geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(filteredPositions, 3));
+            geo.setAttribute('normal', new THREE.Float32BufferAttribute(filteredNormals, 3));
+            if (filteredUvs.length > 0) geo.setAttribute('uv', new THREE.Float32BufferAttribute(filteredUvs, 2));
           }
-          geo = new THREE.BufferGeometry();
-          geo.setAttribute('position', new THREE.Float32BufferAttribute(filteredPositions, 3));
-          geo.setAttribute('normal', new THREE.Float32BufferAttribute(filteredNormals, 3));
-          if (filteredUvs.length > 0) geo.setAttribute('uv', new THREE.Float32BufferAttribute(filteredUvs, 2));
-        }
 
-        // 3. ArcLabV CRITICAL: Fix Winding Order via vertex swapping (NOT index)
-        geo = geo.toNonIndexed();
-        const pos = geo.getAttribute('position');
-        for (let i = 0; i < pos.count; i += 3) {
-          const x1 = pos.getX(i + 1), y1 = pos.getY(i + 1), z1 = pos.getZ(i + 1);
-          const x2 = pos.getX(i + 2), y2 = pos.getY(i + 2), z2 = pos.getZ(i + 2);
-          pos.setXYZ(i + 1, x2, y2, z2);
-          pos.setXYZ(i + 2, x1, y1, z1);
-        }
+          // Apply Vertex Colors
+          geo = geo.toNonIndexed();
+          const pos = geo.getAttribute('position');
+          const norm = geo.getAttribute('normal');
+          const colors = new Float32Array(pos.count * 3);
 
-        geometries.push(geo);
+          const lowerId = (item.id || '').toLowerCase();
+          const lowerGroup = (item.groupId || '').toLowerCase();
+          const isWall = (lowerId.includes('wall') || lowerGroup.includes('wall')) && 
+                         !lowerId.includes('floor') && !lowerId.includes('ceiling') &&
+                         !lowerGroup.includes('floor') && !lowerGroup.includes('ceiling');
+          
+          const canHaveBlackTop = isWall || item.type === 'box';
+          const shouldShowBlackTop = item.showBlackTop === true; // Default to false
+
+          for (let i = 0; i < pos.count; i++) {
+            const ny = norm.getY(i);
+            // If it should show black top, is a fill, and normal points UP, paint it BLACK
+            if (canHaveBlackTop && shouldShowBlackTop && isFill && ny > 0.5) {
+              colors[i * 3] = 0; // Pure black
+              colors[i * 3 + 1] = 0;
+              colors[i * 3 + 2] = 0;
+            } else {
+              // Otherwise white (will be tinted by material color)
+              colors[i * 3] = 1;
+              colors[i * 3 + 1] = 1;
+              colors[i * 3 + 2] = 1;
+            }
+          }
+          geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+          // Fix Winding Order
+          for (let i = 0; i < pos.count; i += 3) {
+            const x1 = pos.getX(i + 1), y1 = pos.getY(i + 1), z1 = pos.getZ(i + 1);
+            const x2 = pos.getX(i + 2), y2 = pos.getY(i + 2), z2 = pos.getZ(i + 2);
+            pos.setXYZ(i + 1, x2, y2, z2);
+            pos.setXYZ(i + 2, x1, y1, z1);
+          }
+
+          geometries.push(geo);
+        });
       });
 
       if (geometries.length === 0) return null;
@@ -661,7 +695,7 @@ export const Furniture = React.memo(({
       return merged;
     }
     return null;
-  }, [item.type, item.svgData, item.extrusion, item.dimensions, item.isHollow]);
+  }, [item.type, item.svgData, item.extrusion, item.dimensions, item.isHollow, item.showBlackTop]);
 
 
   const geometry = useMemo(() => {
@@ -755,9 +789,40 @@ export const Furniture = React.memo(({
 
 
     baseGeo.computeVertexNormals();
+
+    // ArcLabV: Final pass for wall top coloring (persists after CSG/scaling)
+    const lowerId = (item.id || '').toLowerCase();
+    const lowerGroup = (item.groupId || '').toLowerCase();
+    const isWall = (lowerId.includes('wall') || lowerGroup.includes('wall')) && 
+                   !lowerId.includes('floor') && !lowerId.includes('ceiling') &&
+                   !lowerGroup.includes('floor') && !lowerGroup.includes('ceiling');
+
+    const canHaveBlackTop = isWall || item.type === 'box';
+    const shouldShowBlackTop = item.showBlackTop === true; // Default to false
+
+    if (canHaveBlackTop) {
+      baseGeo = baseGeo.toNonIndexed();
+      const pos = baseGeo.getAttribute('position');
+      const norm = baseGeo.getAttribute('normal');
+      const colors = new Float32Array(pos.count * 3);
+      for (let i = 0; i < pos.count; i++) {
+        const ny = norm.getY(i);
+        if (shouldShowBlackTop && ny > 0.5) {
+          colors[i * 3] = 0; // Pure black
+          colors[i * 3 + 1] = 0;
+          colors[i * 3 + 2] = 0;
+        } else {
+          colors[i * 3] = 1; // Pure white
+          colors[i * 3 + 1] = 1;
+          colors[i * 3 + 2] = 1;
+        }
+      }
+      baseGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    }
+
     (baseGeo as any).computeBoundsTree?.();
     return baseGeo;
-  }, [item.type, item.url, item.dimensions, item.subtractions, item.isHollow, loadedScene, svgGeometry]);
+  }, [item.type, item.url, item.dimensions, item.subtractions, item.isHollow, item.showBlackTop, loadedScene, svgGeometry]);
 
 
 
@@ -933,6 +998,13 @@ export const Furniture = React.memo(({
           >
             <meshStandardMaterial
               color={(item.textureId && item.textureId !== 'none') ? (texConfig?.color || "#ffffff") : (item.color || texConfig?.color || (isSelected || isPreviewSelected ? "#60a5fa" : "#94a3b8"))}
+              vertexColors={(() => {
+                const lowerId = (item.id || '').toLowerCase();
+                const lowerGroup = (item.groupId || '').toLowerCase();
+                const isWall = (lowerId.includes('wall') || lowerGroup.includes('wall')) && 
+                               !lowerId.includes('floor') && !lowerId.includes('ceiling');
+                return isWall || item.type === 'box';
+              })()}
               map={finalTextures?.color || null}
               normalMap={finalTextures?.normal || null}
               roughnessMap={finalTextures?.roughness || null}

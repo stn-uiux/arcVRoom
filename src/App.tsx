@@ -491,7 +491,7 @@ export default function App() {
         vb = [0, 0, width, height];
       }
 
-      const candidates = Array.from(doc.querySelectorAll('#wall, #wall-mass, #wall-stroke, #glass, #ceiling, #floor'));
+      const candidates = Array.from(doc.querySelectorAll('[id^="wall"], [id^="glass"], [id^="ceiling"], [id^="floor"]'));
 
       const processElement = (targetEl: Element, typeId: string, label: string) => {
         const tempSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -520,7 +520,7 @@ export default function App() {
         const area = size.x * size.y;
 
         let extrusion = 2;
-        if (typeId === 'ceiling' || typeId === 'floor') extrusion = 0; // True flat plane
+        if (typeId.startsWith('ceiling') || typeId.startsWith('floor')) extrusion = 0; // True flat plane
 
         batch.push({
           id: typeId,
@@ -535,7 +535,7 @@ export default function App() {
       };
 
       candidates.forEach((el) => {
-        if (el.id === 'wall') {
+        if (el.id.startsWith('wall')) {
           const descendants = Array.from(el.querySelectorAll('path, rect, circle, ellipse, line, polyline, polygon'));
           const isSingle = descendants.length === 0;
 
@@ -570,15 +570,16 @@ export default function App() {
       const globalRefCenterCenter = largest.center;
       const scale = 0.1;
 
-      batch.forEach(item => {
-        const isCeiling = item.id === 'ceiling';
-        const isFloor = item.id === 'floor';
-        const isWall = item.id.startsWith('wall');
-        const isStrokeWall = item.id === 'wall-stroke';
+        batch.forEach(item => {
+          const isCeiling = item.id.startsWith('ceiling');
+          const isFloor = item.id.startsWith('floor');
+          const isWall = item.id.startsWith('wall');
+          const isStrokeWall = item.id === 'wall-stroke';
+          const isGlass = item.id.startsWith('glass');
 
-        let extrusion = 2;
-        if (isCeiling || isFloor) extrusion = 0; // True flat plane (ShapeGeometry)
-        if (isStrokeWall) extrusion = 4; // Requested height for stroke walls
+          let extrusion = 2;
+          if (isCeiling || isFloor) extrusion = 0;
+          if (isStrokeWall) extrusion = 4;
 
         const newItem: FurnitureItem = {
           id: `${item.id}-${uuidv4()}`,
@@ -586,21 +587,21 @@ export default function App() {
           name: item.name,
           position: [
             (item.center.x - globalRefCenterCenter.x) * scale,
-            isCeiling ? 4.0 : (isWall || isStrokeWall) ? 0 : -0.005,
+            isCeiling ? 4.0 : (isWall || isStrokeWall || isGlass) ? 0 : -0.005,
             (item.center.y - globalRefCenterCenter.y) * scale
           ],
           rotation: [0, 0, 0],
           scale: [1, 1, 1],
-          color: isWall ? '#e5e7eb' : isStrokeWall ? '#e5e7eb' : item.id === 'glass' ? '#93c5fd' : isCeiling ? '#eeeeee' : '#333333',
+          color: isWall ? '#e5e7eb' : isStrokeWall ? '#e5e7eb' : isGlass ? '#93c5fd' : isCeiling ? '#eeeeee' : '#333333',
           svgData: item.svgData,
           extrusion: extrusion,
           doubleSide: !(isCeiling || isStrokeWall), // ArcLabV: backfaceCulling ON for ceiling/strokeWall
           flipNormals: (isCeiling || isStrokeWall), // ArcLabV: flipNormals ON for ceiling/strokeWall
           isHollow: isStrokeWall,
           subtractions: [],
-          glassOpacity: (item.id === 'glass') ? 0.2 : undefined,
-          glassMetalness: (item.id === 'glass') ? 1.0 : undefined,
-          glassRoughness: (item.id === 'glass') ? 0.0 : undefined
+          glassOpacity: isGlass ? 0.2 : undefined,
+          glassMetalness: isGlass ? 1.0 : undefined,
+          glassRoughness: isGlass ? 0.0 : undefined
         };
         localNewObjects.push(newItem);
       });

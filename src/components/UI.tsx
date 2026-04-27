@@ -894,7 +894,7 @@ export const UI: React.FC<UIProps> = ({
                         </div>
 
                         <div className="pt-3 border-t border-white/5 space-y-3">
-                          <div className="grid grid-cols-3 gap-2">
+                          <div className="grid grid-cols-4 gap-2">
                             <button
                               onClick={() => onUpdateItem(selectedItem.id, { doubleSide: !selectedItem.doubleSide })}
                               className={`flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all ${!selectedItem.doubleSide ? 'bg-teal-500/10 border-teal-500/30' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
@@ -916,6 +916,24 @@ export const UI: React.FC<UIProps> = ({
                               <span className="text-[10px] font-black uppercase text-white/50">Shadows</span>
                               <span className={`text-[10px] font-black ${selectedItem.castShadow !== false ? 'text-teal-500' : 'text-white/30'}`}>{selectedItem.castShadow !== false ? 'ON' : 'OFF'}</span>
                             </button>
+                            {(() => {
+                              const lowerId = (selectedItem.id || '').toLowerCase();
+                              const lowerGroup = (selectedItem.groupId || '').toLowerCase();
+                              const isWall = (lowerId.includes('wall') || lowerGroup.includes('wall')) && 
+                                             !lowerId.includes('floor') && !lowerId.includes('ceiling');
+                              const isBox = selectedItem.type === 'box';
+                              if (!isWall && !isBox) return null;
+                              return (
+                                <button
+                                  onClick={() => onUpdateItem(selectedItem.id, { showBlackTop: selectedItem.showBlackTop === true ? false : true })}
+                                  className={`flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all ${selectedItem.showBlackTop === true ? 'bg-teal-500/10 border-teal-500/30' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
+                                >
+                                  <span className="text-[10px] font-black uppercase text-white/50">Top Color</span>
+                                  <span className={`text-[10px] font-black ${selectedItem.showBlackTop === true ? 'text-teal-500' : 'text-white/30'}`}>{selectedItem.showBlackTop === true ? 'BLACK' : 'OFF'}</span>
+                                </button>
+                              );
+                            })()}
+
                           </div>
 
                           {selectedItem.hasGlass && (

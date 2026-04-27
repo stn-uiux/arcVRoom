@@ -1,13 +1,13 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { 
-  X, 
-  UploadCloud, 
-  Download, 
-  CheckCircle, 
-  Loader2, 
-  Trash2, 
-  Zap, 
-  Eye, 
+import {
+  X,
+  UploadCloud,
+  Download,
+  CheckCircle,
+  Loader2,
+  Trash2,
+  Zap,
+  Eye,
   Info,
   Settings,
   Layers,
@@ -18,14 +18,14 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { WebIO, Document, Transform } from '@gltf-transform/core';
 import { KHRONOS_EXTENSIONS } from '@gltf-transform/extensions';
-import { 
-  weld, 
-  dedup, 
-  resample, 
-  prune, 
-  simplify, 
-  instance, 
-  flatten, 
+import {
+  weld,
+  dedup,
+  resample,
+  prune,
+  simplify,
+  instance,
+  flatten,
   join,
   draco
 } from '@gltf-transform/functions';
@@ -53,7 +53,7 @@ interface GLBCompressorProps {
 export const GLBCompressor: React.FC<GLBCompressorProps> = ({ isOpen, onClose, language = 'ko' }) => {
   const [files, setFiles] = useState<FileState[]>([]);
   const [isDragging, setIsDragging] = useState(false);
-  
+
   // Options
   const [textureFormat, setTextureFormat] = useState('webp');
   const [textureSize, setTextureSize] = useState('1024');
@@ -93,7 +93,7 @@ export const GLBCompressor: React.FC<GLBCompressorProps> = ({ isOpen, onClose, l
         const mimeType = texture.getMimeType();
         const image = texture.getImage();
         if (!image) continue;
-        
+
         const blob = new Blob([image], { type: mimeType });
         const img = new Image();
         img.src = URL.createObjectURL(blob);
@@ -101,7 +101,7 @@ export const GLBCompressor: React.FC<GLBCompressorProps> = ({ isOpen, onClose, l
           img.onload = resolve;
           img.onerror = reject;
         });
-        
+
         const MAX_SIZE = options.resize;
         let width = img.width;
         let height = img.height;
@@ -114,7 +114,7 @@ export const GLBCompressor: React.FC<GLBCompressorProps> = ({ isOpen, onClose, l
             height = MAX_SIZE;
           }
         }
-        
+
         const canvas = window.document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
@@ -122,19 +122,19 @@ export const GLBCompressor: React.FC<GLBCompressorProps> = ({ isOpen, onClose, l
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
         }
-        
-        const targetMime = options.targetFormat === 'webp' ? 'image/webp' : 
-                           options.targetFormat === 'jpeg' ? 'image/jpeg' : 'image/png';
-                           
+
+        const targetMime = options.targetFormat === 'webp' ? 'image/webp' :
+          options.targetFormat === 'jpeg' ? 'image/jpeg' : 'image/png';
+
         const resultBlob = await new Promise<Blob | null>((resolve) => {
-           canvas.toBlob(resolve, targetMime, 0.75);
+          canvas.toBlob(resolve, targetMime, 0.75);
         });
-        
+
         if (resultBlob) {
-           const arrayBuffer = await resultBlob.arrayBuffer();
-           texture.setImage(new Uint8Array(arrayBuffer));
-           texture.setMimeType(targetMime);
-           texture.setURI(texture.getURI().replace(/\.[a-zA-Z0-9]+$/, `.${options.targetFormat}`));
+          const arrayBuffer = await resultBlob.arrayBuffer();
+          texture.setImage(new Uint8Array(arrayBuffer));
+          texture.setMimeType(targetMime);
+          texture.setURI(texture.getURI().replace(/\.[a-zA-Z0-9]+$/, `.${options.targetFormat}`));
         }
         URL.revokeObjectURL(img.src);
       }
@@ -144,23 +144,23 @@ export const GLBCompressor: React.FC<GLBCompressorProps> = ({ isOpen, onClose, l
   const processFile = async (fileState: FileState) => {
     try {
       const io = new WebIO().registerExtensions(KHRONOS_EXTENSIONS);
-      
+
       const setFileProgress = (p: number, s: string) => {
-        setFiles(prev => prev.map(f => 
+        setFiles(prev => prev.map(f =>
           f.id === fileState.id ? { ...f, progress: p, status: s as any } : f
         ));
       };
 
       setFileProgress(10, 'processing');
       const doc = await io.readBinary(fileState.originalBuffer);
-      
+
       const transforms = [];
-      
+
       if (flattenEnabled) transforms.push(flatten());
       if (instanceEnabled) transforms.push(instance());
       if (joinEnabled) transforms.push(join());
       if (weldEnabled) transforms.push(weld());
-      
+
       if (simplifyEnabled) {
         await MeshoptSimplifier.ready;
         transforms.push(simplify({ simplifier: MeshoptSimplifier, ratio: simplifyRatio, error: 0.01 }));
@@ -215,19 +215,19 @@ export const GLBCompressor: React.FC<GLBCompressorProps> = ({ isOpen, onClose, l
 
       setFileProgress(85, 'processing');
       const optimizedBuffer = await io.writeBinary(doc);
-      
-      setFiles(prev => prev.map(f => 
-        f.id === fileState.id ? { 
-          ...f, 
+
+      setFiles(prev => prev.map(f =>
+        f.id === fileState.id ? {
+          ...f,
           compressedBuffer: optimizedBuffer,
           compressedSize: optimizedBuffer.byteLength,
-          progress: 100, 
-          status: 'completed' 
+          progress: 100,
+          status: 'completed'
         } : f
       ));
     } catch (err: any) {
       console.error(err);
-      setFiles(prev => prev.map(f => 
+      setFiles(prev => prev.map(f =>
         f.id === fileState.id ? { ...f, progress: 0, status: 'failed', error: err.message } : f
       ));
     }
@@ -243,7 +243,7 @@ export const GLBCompressor: React.FC<GLBCompressorProps> = ({ isOpen, onClose, l
 
       const buffer = await file.arrayBuffer();
       const Uint8Buffer = new Uint8Array(buffer);
-      
+
       const id = Math.random().toString(36).substr(2, 9);
       const newFileState: FileState = {
         id,
@@ -287,14 +287,14 @@ export const GLBCompressor: React.FC<GLBCompressorProps> = ({ isOpen, onClose, l
 
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
         className="absolute inset-0 bg-black/95 backdrop-blur-sm"
       />
-      
+
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -309,7 +309,7 @@ export const GLBCompressor: React.FC<GLBCompressorProps> = ({ isOpen, onClose, l
             </div>
             <h2 className="text-xl font-bold tracking-tight">{t('GLB Compressor', 'GLB 압축 최적화')}</h2>
           </div>
-          <button 
+          <button
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center bg-slate-800/50 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-400 hover:text-white transition-all"
           >
@@ -326,8 +326,8 @@ export const GLBCompressor: React.FC<GLBCompressorProps> = ({ isOpen, onClose, l
                 {t('Texture Options', '텍스처 옵션')}
               </h3>
               <div className="flex gap-4">
-                <select 
-                  value={textureFormat} 
+                <select
+                  value={textureFormat}
                   onChange={(e) => setTextureFormat(e.target.value)}
                   className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-300 focus:border-blue-500 outline-none transition-colors"
                 >
@@ -335,8 +335,8 @@ export const GLBCompressor: React.FC<GLBCompressorProps> = ({ isOpen, onClose, l
                   <option value="jpeg">JPEG</option>
                   <option value="png">PNG</option>
                 </select>
-                <select 
-                  value={textureSize} 
+                <select
+                  value={textureSize}
                   onChange={(e) => setTextureSize(e.target.value)}
                   className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-300 focus:border-blue-500 outline-none transition-colors"
                 >
@@ -353,14 +353,14 @@ export const GLBCompressor: React.FC<GLBCompressorProps> = ({ isOpen, onClose, l
               <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-800 pb-2">
                 {t('Advanced Options', '상세 옵션')}
               </h3>
-              
+
               <div className="space-y-4">
                 {/* Checkbox Rows */}
                 <div className="space-y-3">
                   <label className="flex items-center gap-3 cursor-pointer group">
-                    <input 
-                      type="checkbox" 
-                      checked={removeDuplicates} 
+                    <input
+                      type="checkbox"
+                      checked={removeDuplicates}
                       onChange={(e) => setRemoveDuplicates(e.target.checked)}
                       className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-0"
                     />
@@ -370,9 +370,9 @@ export const GLBCompressor: React.FC<GLBCompressorProps> = ({ isOpen, onClose, l
                   </label>
 
                   <label className="flex items-center gap-3 cursor-pointer group">
-                    <input 
-                      type="checkbox" 
-                      checked={removeUnused} 
+                    <input
+                      type="checkbox"
+                      checked={removeUnused}
                       onChange={(e) => setRemoveUnused(e.target.checked)}
                       className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-0"
                     />
@@ -383,9 +383,9 @@ export const GLBCompressor: React.FC<GLBCompressorProps> = ({ isOpen, onClose, l
 
                   <div className="space-y-2">
                     <label className="flex items-center gap-3 cursor-pointer group">
-                      <input 
-                        type="checkbox" 
-                        checked={dracoEnabled} 
+                      <input
+                        type="checkbox"
+                        checked={dracoEnabled}
                         onChange={(e) => setDracoEnabled(e.target.checked)}
                         className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-0"
                       />
@@ -402,9 +402,9 @@ export const GLBCompressor: React.FC<GLBCompressorProps> = ({ isOpen, onClose, l
                   <div className="flex items-center gap-6 p-4 bg-slate-950/50 border border-slate-800 rounded-xl">
                     <label className="flex items-center gap-3 cursor-pointer w-48 shrink-0">
                       <div className={`w-8 h-4 rounded-full relative transition-colors ${simplifyEnabled ? 'bg-blue-600' : 'bg-slate-700'}`}>
-                        <input 
-                          type="checkbox" 
-                          checked={simplifyEnabled} 
+                        <input
+                          type="checkbox"
+                          checked={simplifyEnabled}
                           onChange={(e) => setSimplifyEnabled(e.target.checked)}
                           className="sr-only"
                         />
@@ -413,8 +413,8 @@ export const GLBCompressor: React.FC<GLBCompressorProps> = ({ isOpen, onClose, l
                       <span className="text-sm text-slate-300">{t('Simplify geometry', '지오메트리 단순화')}</span>
                     </label>
                     <div className="flex-1 flex items-center gap-4">
-                      <input 
-                        type="range" min="0" max="1" step="0.01" 
+                      <input
+                        type="range" min="0" max="1" step="0.01"
                         disabled={!simplifyEnabled}
                         value={simplifyRatio}
                         onChange={(e) => setSimplifyRatio(parseFloat(e.target.value))}
@@ -433,9 +433,9 @@ export const GLBCompressor: React.FC<GLBCompressorProps> = ({ isOpen, onClose, l
                       { id: 'weld', label: t('Weld vertices', '정점 병합'), state: weldEnabled, set: setWeldEnabled }
                     ].map(opt => (
                       <label key={opt.id} className="flex items-center gap-3 cursor-pointer group">
-                        <input 
-                          type="checkbox" 
-                          checked={opt.state} 
+                        <input
+                          type="checkbox"
+                          checked={opt.state}
                           onChange={(e) => opt.set(e.target.checked)}
                           className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-0"
                         />
@@ -455,8 +455,8 @@ export const GLBCompressor: React.FC<GLBCompressorProps> = ({ isOpen, onClose, l
           <div className="col-span-5 flex flex-col bg-[#020617]">
             {/* Upload Zone */}
             <div className="p-8 pb-4 h-full flex flex-col gap-6">
-              <div 
-                onClick={() => fileInputRef.current?.click()} 
+              <div
+                onClick={() => fileInputRef.current?.click()}
                 onDragOver={(e) => {
                   e.preventDefault();
                   setIsDragging(true);
@@ -481,16 +481,13 @@ export const GLBCompressor: React.FC<GLBCompressorProps> = ({ isOpen, onClose, l
                   <p className="text-sm font-bold text-white uppercase tracking-tight">{t('Drag & Drop GLB files', 'GLB 파일 드래그')}</p>
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">Or click to explore</p>
                 </div>
-                <button className="bg-blue-600 hover:bg-blue-500 text-black text-[10px] font-bold px-4 py-1.5 rounded-lg transition-all shadow-lg shadow-blue-900/20">
-                  Select Files
-                </button>
               </div>
-              <input 
-                type="file" 
-                multiple 
-                accept=".glb" 
-                ref={fileInputRef} 
-                className="hidden" 
+              <input
+                type="file"
+                multiple
+                accept=".glb"
+                ref={fileInputRef}
+                className="hidden"
                 onChange={handleFileUpload}
               />
 
@@ -539,7 +536,7 @@ export const GLBCompressor: React.FC<GLBCompressorProps> = ({ isOpen, onClose, l
                                   <span className="text-[7px] text-blue-500 uppercase">Processing</span>
                                 </div>
                               ) : file.status === 'completed' ? (
-                                <button 
+                                <button
                                   onClick={() => downloadFile(file)}
                                   className="text-[9px] font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1 rounded-md text-white transition-all"
                                 >
