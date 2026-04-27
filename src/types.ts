@@ -68,6 +68,8 @@ export interface FurnitureItem {
   showReflection?: boolean;
   hasGlass?: boolean;
   showBlackTop?: boolean;
+  borderRadius?: number;
+  borderSegments?: number;
 }
 
 export interface TextureConfig {

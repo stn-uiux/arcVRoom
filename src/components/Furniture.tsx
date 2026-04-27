@@ -13,6 +13,8 @@ import { getPresetMaterials } from './MaterialsLibrary';
 import { selectionMeshesRef } from '../selectionRegistry';
 import { ACCENT_400 } from '../theme';
 import { Evaluator, Brush, SUBTRACTION } from 'three-bvh-csg';
+// @ts-ignore
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry';
 
 // Set global DRACO decoder path for useGLTF
 useGLTF.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
@@ -230,6 +232,8 @@ export const Furniture = React.memo(({
 
     return result;
   }, [mapUrls, loadedMaps, item.textureTiling, item.textureDensity, item.textureOffset, texConfig]);
+  
+
 
   const [isColliding, setIsColliding] = useState(false);
   const pointerDownPos = useRef<{ x: number, y: number } | null>(null);
@@ -724,8 +728,18 @@ export const Furniture = React.memo(({
       }
     } else {
       const d = item.dimensions || [1, 1, 1];
-      if (item.type === 'box') baseGeo = new THREE.BoxGeometry(d[0], d[1], d[2]).translate(0, d[1] / 2, 0);
+      if (item.type === 'box') {
+        const radius = item.borderRadius ?? 0;
+        const segments = item.borderSegments ?? 4;
+        if (radius > 0) {
+          // @ts-ignore
+          baseGeo = new RoundedBoxGeometry(d[0], d[1], d[2], segments, radius).translate(0, d[1] / 2, 0);
+        } else {
+          baseGeo = new THREE.BoxGeometry(d[0], d[1], d[2]).translate(0, d[1] / 2, 0);
+        }
+      }
       else if (item.type === 'sphere') baseGeo = new THREE.SphereGeometry(d[0] / 2, 32, 16).translate(0, d[1] / 2, 0);
+
       else if (item.type === 'plane') baseGeo = new THREE.PlaneGeometry(d[0], d[2]).rotateX(-Math.PI / 2).translate(0, 0, 0);
       else if (item.type === 'clock') baseGeo = new THREE.BoxGeometry(1.2, 0.85, 0.05).translate(0, 0.425, 0);
       else baseGeo = new THREE.BoxGeometry(d[0], d[1], d[2]);
@@ -821,8 +835,40 @@ export const Furniture = React.memo(({
     }
 
     (baseGeo as any).computeBoundsTree?.();
+    
+    // ARC-FIX: BOX MAPPING - Improved Planar UVs based on surface normals (Prevents texture stretching)
+    if (item.type === 'box' || item.type === 'plane' || isWall) {
+      const pos = baseGeo.attributes.position;
+      const norm = baseGeo.attributes.normal;
+      const uvs = new Float32Array(pos.count * 2);
+      const uvScale = 1.0; 
+      
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i);
+        const y = pos.getY(i);
+        const z = pos.getZ(i);
+        
+        const nx = Math.abs(norm.getX(i));
+        const ny = Math.abs(norm.getY(i));
+        const nz = Math.abs(norm.getZ(i));
+        
+        if (ny > 0.5) { // Top/Bottom faces
+          uvs[i * 2] = x * uvScale;
+          uvs[i * 2 + 1] = z * uvScale;
+        } else if (nx > 0.5) { // Side faces (X-facing)
+          uvs[i * 2] = z * uvScale;
+          uvs[i * 2 + 1] = y * uvScale;
+        } else { // Side faces (Z-facing)
+          uvs[i * 2] = x * uvScale;
+          uvs[i * 2 + 1] = y * uvScale;
+        }
+      }
+      baseGeo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+      baseGeo.setAttribute('uv2', new THREE.BufferAttribute(uvs, 2));
+    }
+
     return baseGeo;
-  }, [item.type, item.url, item.dimensions, item.subtractions, item.isHollow, item.showBlackTop, loadedScene, svgGeometry]);
+  }, [item.type, item.url, item.dimensions, item.subtractions, item.isHollow, item.showBlackTop, item.borderRadius, item.borderSegments, loadedScene, svgGeometry]);
 
 
 
@@ -1032,6 +1078,7 @@ export const Furniture = React.memo(({
                 item.flipNormals ? THREE.BackSide :
                   item.doubleSide === true || item.type === 'sphere' ? THREE.DoubleSide : THREE.FrontSide
               }
+
             />
           </mesh>
         )}

@@ -936,65 +936,44 @@ export const UI: React.FC<UIProps> = ({
 
                           </div>
 
-                          {selectedItem.hasGlass && (
-                            <div className="space-y-4 pt-2">
-                              <div className="space-y-2">
-                                <div className="flex justify-between text-[10px] text-white/50 font-black uppercase tracking-widest">
-                                  <span>Glass Opacity</span>
-                                  <span className="text-teal-500">{(selectedItem.glassOpacity ?? 0.3).toFixed(2)}</span>
+                          
+                          {selectedItem.type === 'box' && (
+                            <div className="space-y-4 pt-4 border-t border-white/5 animate-in slide-in-from-top-2 duration-300">
+                                                            <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 text-teal-500/40">
+                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="4" /></svg>
                                 </div>
-                                <input
-                                  type="range" min="0" max="1" step="0.05"
-                                  value={selectedItem.glassOpacity ?? 0.3}
-                                  onChange={(e) => onUpdateItem(selectedItem.id, { glassOpacity: parseFloat(e.target.value) })}
-                                  className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-teal-500"
-                                />
+                                <span className="text-[10px] text-white/30 font-black uppercase tracking-widest">{t('Rounding', '모서리 둥글리기')}</span>
                               </div>
-
-                              <div className="flex items-center justify-between p-2.5 bg-black/40 rounded-xl border border-white/5 shadow-inner">
-                                <div className="flex flex-col">
-                                  <span className="text-[10px] font-black text-white/50 uppercase tracking-widest leading-none mb-1">Glass Base Color</span>
-                                  <span className="text-[10px] font-mono text-teal-500 uppercase tracking-widest">{selectedItem.glassColor || 'Default'}</span>
-                                </div>
-                                <div className="relative w-7 h-7 rounded-lg overflow-hidden border border-white/20 hover:border-teal-500 transition-all shadow-lg">
+                              <div className="space-y-4">
+                                <div className="space-y-2">
+                                  <div className="flex justify-between text-[10px] text-white/50 font-black uppercase tracking-widest">
+                                    <span>{t('Radius', '반지름')}</span>
+                                    <span className="text-teal-500">{(selectedItem.borderRadius ?? 0).toFixed(3)}</span>
+                                  </div>
                                   <input
-                                    type="color"
-                                    value={selectedItem.glassColor || '#ffffff'}
-                                    onChange={(e) => onUpdateItem(selectedItem.id, { glassColor: e.target.value })}
-                                    className="absolute -inset-4 w-16 h-16 cursor-pointer"
+                                    type="range" min="0" max="2" step="0.001"
+                                    value={selectedItem.borderRadius ?? 0}
+                                    onChange={(e) => onUpdateItem(selectedItem.id, { borderRadius: parseFloat(e.target.value) })}
+                                    className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-teal-500"
                                   />
-                                  <div className="absolute inset-0 pointer-events-none bg-gradient-to-tr from-black/20 to-transparent" />
                                 </div>
-                              </div>
+                                <div className="space-y-2">
+                                  <div className="flex justify-between text-[10px] text-white/50 font-black uppercase tracking-widest">
+                                    <span>{t('Segments', '세그먼트')}</span>
+                                    <span className="text-teal-500">{selectedItem.borderSegments ?? 4}</span>
+                                  </div>
+                                  <input
+                                    type="range" min="1" max="32" step="1"
+                                    value={selectedItem.borderSegments ?? 4}
 
-                              <div className="space-y-2">
-                                <div className="flex justify-between text-[10px] text-white/50 font-black uppercase tracking-widest">
-                                  <span>Glass Metalness</span>
-                                  <span className="text-teal-500">{(selectedItem.glassMetalness ?? 0.1).toFixed(2)}</span>
+                                    onChange={(e) => onUpdateItem(selectedItem.id, { borderSegments: parseInt(e.target.value) })}
+                                    className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-teal-500"
+                                  />
                                 </div>
-                                <input
-                                  type="range" min="0" max="1" step="0.05"
-                                  value={selectedItem.glassMetalness ?? 0.1}
-                                  onChange={(e) => onUpdateItem(selectedItem.id, { glassMetalness: parseFloat(e.target.value) })}
-                                  className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-teal-500"
-                                />
-                              </div>
-
-                              <div className="space-y-2">
-                                <div className="flex justify-between text-[10px] text-white/50 font-black uppercase tracking-widest">
-                                  <span>Glass Roughness</span>
-                                  <span className="text-teal-500">{(selectedItem.glassRoughness ?? 0.1).toFixed(2)}</span>
-                                </div>
-                                <input
-                                  type="range" min="0" max="1" step="0.05"
-                                  value={selectedItem.glassRoughness ?? 0.1}
-                                  onChange={(e) => onUpdateItem(selectedItem.id, { glassRoughness: parseFloat(e.target.value) })}
-                                  className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-teal-500"
-                                />
                               </div>
                             </div>
                           )}
-
 
                           <div className="space-y-4 pt-2">
                             {/* Base Color Picker */}
@@ -1004,6 +983,7 @@ export const UI: React.FC<UIProps> = ({
                                 <span className="text-[10px] font-mono text-teal-500 uppercase tracking-widest">{selectedItem.color || 'Default'}</span>
                               </div>
                               <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-white/20 hover:border-teal-500 transition-all shadow-lg">
+
                                 <input
                                   type="color"
                                   value={selectedItem.color || '#94a3b8'}
