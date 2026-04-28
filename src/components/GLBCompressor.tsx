@@ -22,9 +22,9 @@ interface GLBCompressorProps {
   onDownloadFile: (file: FileState) => void;
 }
 
-export const GLBCompressor: React.FC<GLBCompressorProps> = ({ 
-  isOpen, 
-  onClose, 
+export const GLBCompressor: React.FC<GLBCompressorProps> = ({
+  isOpen,
+  onClose,
   language = 'ko',
   files,
   onAddFiles,
@@ -261,9 +261,9 @@ export const GLBCompressor: React.FC<GLBCompressorProps> = ({
           </div>
 
           {/* Right: Upload & List (5 cols) */}
-          <div className="col-span-5 flex flex-col bg-[#020617]">
+          <div className="col-span-5 flex flex-col bg-[#020617] min-h-0">
             {/* Upload Zone */}
-            <div className="p-8 pb-4 h-full flex flex-col gap-6">
+            <div className="p-8 flex-1 flex flex-col gap-4 min-h-0">
               <div
                 onClick={() => fileInputRef.current?.click()}
                 onDragOver={(e) => {
@@ -287,14 +287,14 @@ export const GLBCompressor: React.FC<GLBCompressorProps> = ({
                   <UploadCloud className="w-6 h-6 text-blue-500" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-white uppercase tracking-tight">{t('Drag & Drop GLB files', 'GLB 파일 드래그')}</p>
+                  <p className="text-sm font-bold text-white uppercase tracking-tight">{t('Drag & Drop GLB/GLTF files', 'GLB/GLTF 파일 드래그')}</p>
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">Or click to explore</p>
                 </div>
               </div>
               <input
                 type="file"
                 multiple
-                accept=".glb"
+                accept=".glb,.gltf"
                 ref={fileInputRef}
                 className="hidden"
                 onChange={handleFileUpload}

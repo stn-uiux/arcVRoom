@@ -13,7 +13,7 @@ import {
   draco
 } from '@gltf-transform/functions';
 import { MeshoptSimplifier } from 'meshoptimizer';
-import draco3d from 'draco3d';
+import * as draco3d from 'draco3d';
 
 export interface FileState {
   id: string;
@@ -113,8 +113,36 @@ export const useGLBCompression = () => {
         ));
       };
 
-      setFileProgress(10, 'processing');
-      const doc = await io.readBinary(fileState.originalBuffer);
+      setFileProgress(5, 'processing');
+
+      // ARC-FIX: Register Draco dependencies BEFORE reading.
+      // This is necessary if the input file itself is Draco-compressed.
+      try {
+        const [decoderModule, encoderModule] = await Promise.all([
+          draco3d.createDecoderModule({
+            locateFile: (file: string) => `https://unpkg.com/draco3d@1.5.7/${file}`
+          }),
+          draco3d.createEncoderModule({
+            locateFile: (file: string) => `https://unpkg.com/draco3d@1.5.7/${file}`
+          })
+        ]);
+        io.registerDependencies({
+          'draco3d.decoder': decoderModule,
+          'draco3d.encoder': encoderModule,
+        });
+      } catch (e) {
+        console.warn('Draco registration failed, but continuing...', e);
+      }
+
+      setFileProgress(15, 'processing');
+      
+      const isGLTF = fileState.name.toLowerCase().endsWith('.gltf');
+      const doc = isGLTF 
+        ? await io.readJSON({
+            json: JSON.parse(new TextDecoder().decode(fileState.originalBuffer)),
+            resources: {}
+          })
+        : await io.readBinary(fileState.originalBuffer);
 
       const transforms = [];
 
@@ -157,23 +185,6 @@ export const useGLBCompression = () => {
       setFileProgress(40, 'processing');
       await doc.transform(...transforms);
 
-      if (options.dracoEnabled) {
-        setFileProgress(70, 'processing');
-        try {
-          const decoderModule = await draco3d.createDecoderModule({
-            locateFile: (file: string) => `https://unpkg.com/draco3d@1.5.7/${file}`
-          });
-          const encoderModule = await draco3d.createEncoderModule({
-            locateFile: (file: string) => `https://unpkg.com/draco3d@1.5.7/${file}`
-          });
-          io.registerDependencies({
-            'draco3d.decoder': decoderModule,
-            'draco3d.encoder': encoderModule,
-          });
-        } catch (e) {
-          console.error('Failed to load draco dependencies', e);
-        }
-      }
 
       setFileProgress(85, 'processing');
       const optimizedBuffer = await io.writeBinary(doc);
@@ -199,7 +210,8 @@ export const useGLBCompression = () => {
 
   const addFiles = useCallback((newFiles: File[], options: CompressionOptions) => {
     newFiles.forEach(async (file) => {
-      if (!file.name.toLowerCase().endsWith('.glb')) return;
+      const lowerName = file.name.toLowerCase();
+      if (!lowerName.endsWith('.glb') && !lowerName.endsWith('.gltf')) return;
 
       const buffer = await file.arrayBuffer();
       const Uint8Buffer = new Uint8Array(buffer);

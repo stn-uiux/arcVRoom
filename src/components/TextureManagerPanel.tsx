@@ -57,7 +57,7 @@ export const TextureManagerPanel: React.FC<TextureManagerPanelProps> = ({
               <div className="p-3 border-t border-white/5 space-y-4 bg-black/40 shadow-inner">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <span className="text-[10px] text-white/30 font-black uppercase pl-1">Material Name</span>
+                    <span className="text-[10px] text-white/30 font-black uppercase pl-1">{t('Material Name', '재질 이름')}</span>
                     <input 
                       type="text" 
                       value={tex.name} 
@@ -66,7 +66,7 @@ export const TextureManagerPanel: React.FC<TextureManagerPanelProps> = ({
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <span className="text-[10px] text-white/30 font-black uppercase pl-1">Color Tint</span>
+                    <span className="text-[10px] text-white/30 font-black uppercase pl-1">{t('Color Tint', '색상 틴트')}</span>
                     <div className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-xl px-2 py-1.5 h-[34px]">
                       <div className="relative w-5 h-5 rounded-md overflow-hidden border border-white/20 shadow-lg">
                          <input 
@@ -83,16 +83,16 @@ export const TextureManagerPanel: React.FC<TextureManagerPanelProps> = ({
 
                 {/* Map Grid */}
                 <div className="space-y-2">
-                  <span className="text-[10px] text-white/30 font-black uppercase pl-1">Texture Maps</span>
+                  <span className="text-[10px] text-white/30 font-black uppercase pl-1">{t('Texture Maps', '텍스처 맵')}</span>
                   <div className="grid grid-cols-4 gap-2">
                     {[
-                      { key: 'color', label: 'Color' },
-                      { key: 'normal', label: 'Normal' },
-                      { key: 'roughness', label: 'Rough' },
-                      { key: 'metalness', label: 'Metal' },
-                      { key: 'displacement', label: 'Disp' },
-                      { key: 'ao', label: 'AO' },
-                      { key: 'emissive', label: 'Emit' },
+                      { key: 'color', label: t('Color', '색상') },
+                      { key: 'normal', label: t('Normal', '노멀') },
+                      { key: 'roughness', label: t('Rough', '러프니스') },
+                      { key: 'metalness', label: t('Metal', '메탈릭') },
+                      { key: 'displacement', label: t('Disp', '변위') },
+                      { key: 'ao', label: t('AO', '교합') },
+                      { key: 'emissive', label: t('Emit', '방사') },
                     ].map(map => {
                       const mapType = map.key as keyof NonNullable<TextureConfig['maps']>;
                       const hasMap = tex.maps?.[mapType];
@@ -145,11 +145,11 @@ export const TextureManagerPanel: React.FC<TextureManagerPanelProps> = ({
 
                 <div className="space-y-4 pt-2">
                   {[
-                    { label: 'Opacity', field: 'opacity', default: 1 },
-                    { label: 'Metalness', field: 'metalness', default: 0.1 },
-                    { label: 'Roughness', field: 'roughness', default: 0.7 },
-                    { label: 'Emit Intensity', field: 'emissiveIntensity', default: 0 },
-                    { label: 'Disp Scale', field: 'displacementScale', default: 0.1 }
+                    { label: t('Opacity', '투명도'), field: 'opacity', default: 1 },
+                    { label: t('Metalness', '금속성'), field: 'metalness', default: 0.1 },
+                    { label: t('Roughness', '거칠기'), field: 'roughness', default: 0.7 },
+                    { label: t('Emit Intensity', '방사 강도'), field: 'emissiveIntensity', default: 0 },
+                    { label: t('Disp Scale', '변위 스케일'), field: 'displacementScale', default: 0.1 }
                   ].map(slider => (
                     <div key={slider.field} className="space-y-1.5 group/slider">
                       <div className="flex justify-between text-[10px] text-white/30 font-black uppercase pl-1">

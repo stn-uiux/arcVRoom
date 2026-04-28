@@ -460,7 +460,18 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
-        const imported = JSON.parse(ev.target?.result as string);
+        const imported = JSON.parse(ev.target?.result as string) as AppState;
+        
+        // ARC-FIX: Automatic migration from .gltf to .glb for legacy scene files
+        if (imported.items) {
+          imported.items = imported.items.map(item => {
+            if (item.url && item.url.endsWith('.gltf')) {
+              return { ...item, url: item.url.replace('.gltf', '.glb') };
+            }
+            return item;
+          });
+        }
+
         saveToHistory(state);
         setState(imported);
         setSelectedSubId(null);
@@ -916,3 +927,4 @@ export default function App() {
     </div>
   );
 }
+

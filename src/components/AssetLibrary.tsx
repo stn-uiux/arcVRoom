@@ -45,7 +45,7 @@ const parseModelsFromFileList = (fileNames: string[]): ModelInfo[] => {
     return {
       id: baseName.toLowerCase(),
       name: baseName.replace(/[_-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-      url: `/models/${fileName}`,
+      url: `/models/${encodeURIComponent(fileName)}`,
       type: 'model'
     };
   });

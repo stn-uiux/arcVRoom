@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useEffect, useState } from 'react';
+import React, { useMemo, useRef, useEffect, useState, Suspense } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { TransformControls, useGLTF, Html, PivotControls, useTexture } from '@react-three/drei';
@@ -18,6 +18,74 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 
 // Set global DRACO decoder path for useGLTF
 useGLTF.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+
+const sanitizeMaterial = (mat: any, environment: THREE.Texture | null = null) => {
+  if (mat.isMeshStandardMaterial || mat.isMeshPhysicalMaterial) {
+    const mapSlots = [
+      'map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 
+      'emissiveMap', 'displacementMap', 'alphaMap', 'bumpMap',
+      'clearcoatMap', 'clearcoatRoughnessMap', 'clearcoatNormalMap',
+      'sheenColorMap', 'sheenRoughnessMap', 'iridescenceMap', 
+      'iridescenceThicknessMap', 'specularIntensityMap', 'specularColorMap',
+      'transmissionMap', 'thicknessMap', 'anisotropyMap', 'anisotropyRotationMap'
+    ];
+    
+    mapSlots.forEach(slot => {
+      if (mat[slot] === undefined) mat[slot] = null;
+    });
+
+    if (environment) {
+      mat.envMap = environment;
+    } else if (mat.envMap === undefined) {
+      mat.envMap = null;
+    }
+    
+    if (mat.isMeshPhysicalMaterial) {
+      if (mat.transmission === undefined) mat.transmission = 0;
+      if (mat.thickness === undefined) mat.thickness = 0;
+      if (mat.ior === undefined) mat.ior = 1.5;
+      if (mat.attenuationColor === undefined) mat.attenuationColor = new THREE.Color(1, 1, 1);
+      if (mat.attenuationDistance === undefined) mat.attenuationDistance = Infinity;
+      if (mat.clearcoat === undefined) mat.clearcoat = 0;
+      if (mat.clearcoatRoughness === undefined) mat.clearcoatRoughness = 0;
+      if (mat.sheen === undefined) mat.sheen = 0;
+      if (mat.sheenRoughness === undefined) mat.sheenRoughness = 0;
+      if (mat.sheenColor === undefined) mat.sheenColor = new THREE.Color(1, 1, 1);
+      if (mat.specularIntensity === undefined) mat.specularIntensity = 1;
+      if (mat.specularColor === undefined) mat.specularColor = new THREE.Color(1, 1, 1);
+      if (mat.iridescence === undefined) mat.iridescence = 0;
+      if (mat.iridescenceIOR === undefined) mat.iridescenceIOR = 1.3;
+      if (mat.anisotropy === undefined) mat.anisotropy = 0;
+      if (mat.anisotropyRotation === undefined) mat.anisotropyRotation = 0;
+    }
+    mat.needsUpdate = true;
+  }
+};
+
+class ModelErrorBoundary extends React.Component<
+  { children: React.ReactNode; url: string },
+  { hasError: boolean; errorUrl: string }
+> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, errorUrl: props.url };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidUpdate(prevProps: any) {
+    if (prevProps.url !== this.props.url) {
+      this.setState({ hasError: false, errorUrl: this.props.url });
+    }
+  }
+
+  render() {
+    if (this.state.hasError) return null;
+    return this.props.children;
+  }
+}
 
 const ModelLayer: React.FC<{ url: string; onModelLoaded: (scene: THREE.Group) => void }> = ({ url, onModelLoaded }) => {
   const { scene } = useGLTF(url);
@@ -332,6 +400,9 @@ export const Furniture = React.memo(({
             let isAnyGlass = false;
 
             mats.forEach((mat: any) => {
+              // ARC-FIX: Sanitize material immediately upon cloning
+              sanitizeMaterial(mat, null);
+
               // Apply UI Culling overrides natively to all materials in the GLTF
               if (item.flipNormals !== undefined) {
                 mat.side = item.flipNormals ? THREE.BackSide : (item.doubleSide === false ? THREE.FrontSide : THREE.DoubleSide);
@@ -344,7 +415,8 @@ export const Furniture = React.memo(({
 
               const hasTransmission = mat.isMeshPhysicalMaterial && mat.transmission > 0;
               const isByName = mat.name && mat.name.toLowerCase().includes('glass');
-              const isGlass = hasTransmission || isByName;
+              const isTransparent = mat.transparent === true && mat.opacity < 0.95; // ARC-FIX: Also detect transparent materials as glass
+              const isGlass = hasTransmission || isByName || isTransparent;
 
               if (isGlass) {
                 isAnyGlass = true;
@@ -404,7 +476,9 @@ export const Furniture = React.memo(({
             // ARC-FIX: Let user control shadow casting, or default to NO SHADOW for glass
             const shouldCast = item.castShadow !== undefined ? item.castShadow : !isAnyGlass;
             mesh.castShadow = shouldCast;
-            mesh.customDistanceMaterial = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material; // Help shadow engine with transparency
+            // ARC-FIX: REMOVED customDistanceMaterial assignment. 
+            // Setting a Physical material as a custom distance material causes refreshUniformsPhysical to crash during shadow pass
+            // because the shadow program doesn't have the complex physical material uniforms.
           } else {
             mesh.castShadow = item.castShadow !== undefined ? item.castShadow : true;
           }
@@ -453,43 +527,55 @@ export const Furniture = React.memo(({
         if (mesh.isMesh && mesh.material) {
           const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
           
-          mats.forEach((mat: any) => {
-            // ARC-FIX: Apply Material Properties from Config (Support for Custom Materials on Models)
-            if (item.textureId && item.textureId !== 'none' && texConfig) {
-              if (texConfig.opacity !== undefined) {
-                mat.opacity = texConfig.opacity;
-                mat.transparent = mat.opacity < 0.99;
+            mats.forEach((mat: any) => {
+              // ARC-FIX: Apply Material Properties from Config (Support for Custom Materials on Models)
+              if (item.textureId && item.textureId !== 'none' && texConfig) {
+                if (texConfig.opacity !== undefined) {
+                  mat.opacity = texConfig.opacity;
+                  mat.transparent = mat.opacity < 0.99;
+                }
+                if (texConfig.metalness !== undefined) mat.metalness = texConfig.metalness;
+                if (texConfig.roughness !== undefined) mat.roughness = texConfig.roughness;
+                if (texConfig.color) mat.color.set(texConfig.color);
+                
+                // ARC-FIX: Apply textures to model materials
+                if (finalTextures) {
+                  if (finalTextures.color) mat.map = finalTextures.color;
+                  if (finalTextures.normal) mat.normalMap = finalTextures.normal;
+                  if (finalTextures.roughness) mat.roughnessMap = finalTextures.roughness;
+                  if (finalTextures.metalness) mat.metalnessMap = finalTextures.metalness;
+                  if (finalTextures.ao) mat.aoMap = finalTextures.ao;
+                  if (finalTextures.displacement) {
+                    mat.displacementMap = finalTextures.displacement;
+                    mat.displacementScale = item.displacementScale ?? texConfig.displacementScale ?? 0.1;
+                  }
+                  if (finalTextures.emissive) mat.emissiveMap = finalTextures.emissive;
+                  if (finalTextures.opacity) {
+                    mat.alphaMap = finalTextures.opacity;
+                    mat.transparent = true;
+                  }
+                }
               }
-              if (texConfig.metalness !== undefined) mat.metalness = texConfig.metalness;
-              if (texConfig.roughness !== undefined) mat.roughness = texConfig.roughness;
-              if (texConfig.color) mat.color.set(texConfig.color);
-            }
 
-            // ARC-FIX: Get reflection properties
-            const hasTransmission = mat.isMeshPhysicalMaterial && mat.transmission > 0;
-            const isByName = mat.name && mat.name.toLowerCase().includes('glass');
-            const isGlass = hasTransmission || isByName;
+              // ARC-FIX: Get reflection properties
+              const hasTransmission = mat.isMeshPhysicalMaterial && mat.transmission > 0;
+              const isByName = mat.name && mat.name.toLowerCase().includes('glass');
+              const isGlass = hasTransmission || isByName;
 
-            // Apply environment intensity
-            const canReflect = showReflection === true;
-            
-            if (!canReflect) {
-              mat.envMapIntensity = 0;
-            } else if (item.envMapIntensity !== undefined) {
-              mat.envMapIntensity = item.envMapIntensity;
-            } else {
-              // Default intensity when enabled
-              mat.envMapIntensity = 1.0;
-            }
-
-            // ARC-FIX: Force updates for materials that might be static
-            if (mat.isMeshStandardMaterial || mat.isMeshPhysicalMaterial) {
-              if (!mat.envMap && scene.environment) {
-                mat.envMap = scene.environment;
+              // Apply environment intensity
+              const canReflect = showReflection === true;
+              
+              if (!canReflect) {
+                mat.envMapIntensity = 0;
+              } else if (item.envMapIntensity !== undefined) {
+                mat.envMapIntensity = item.envMapIntensity;
+              } else {
+                mat.envMapIntensity = 1.0;
               }
-              mat.needsUpdate = true;
-            }
-          });
+
+              // ARC-FIX: CRITICAL - Ensure NO material property is undefined to prevent refreshUniformsPhysical crash
+              sanitizeMaterial(mat, scene.environment);
+            });
         }
       });
     }
@@ -713,14 +799,37 @@ export const Furniture = React.memo(({
       tempScene.updateMatrixWorld(true);
       tempScene.traverse((child) => {
         if ((child as THREE.Mesh).isMesh) {
-          const geo = (child as THREE.Mesh).geometry.clone();
-          geo.applyMatrix4((child as THREE.Mesh).matrixWorld);
-          Object.keys(geo.attributes).forEach(k => { if (k !== 'position') geo.deleteAttribute(k); });
+          const mesh = child as THREE.Mesh;
+          const geo = mesh.geometry.clone();
+          geo.applyMatrix4(mesh.matrixWorld);
+          
+          // ARC-FIX: Ensure all merged geometries have compatible attributes (Position, Normal, UV)
+          // mergeGeometries fails if some have an attribute and others don't.
+          if (!geo.attributes.position) return;
+          
+          if (!geo.attributes.normal) geo.computeVertexNormals();
+          
+          if (!geo.attributes.uv) {
+            const count = geo.attributes.position.count;
+            geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(count * 2), 2));
+          }
+
+          const allowed = ['position', 'normal', 'uv'];
+          Object.keys(geo.attributes).forEach(k => { 
+            if (!allowed.includes(k)) geo.deleteAttribute(k); 
+          });
+          
           geometries.push(geo);
         }
       });
       if (geometries.length > 0) {
-        baseGeo = mergeGeometries(geometries) || new THREE.BoxGeometry(0.001, 0.001, 0.001);
+        try {
+          // mergeGeometries works best when all geometries have the same attributes
+          baseGeo = mergeGeometries(geometries) || new THREE.BoxGeometry(0.001, 0.001, 0.001);
+        } catch (e) {
+          console.error('[Furniture] mergeGeometries failed:', e);
+          baseGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5); // Fallback to a small box
+        }
       } else {
         // If it's a model but we found no meshes yet, return null to avoid showing a box
         if (item.type === 'model' || item.url) return null;
@@ -753,6 +862,8 @@ export const Furniture = React.memo(({
         baseGeo.setAttribute('uv2', new THREE.BufferAttribute(baseGeo.attributes.uv.array, 2));
       }
     }
+
+    if (!baseGeo) return null;
 
     if (item.subtractions && item.subtractions.length > 0) {
       const evaluator = new Evaluator();
@@ -1007,7 +1118,13 @@ export const Furniture = React.memo(({
 
   return (
     <>
-      {item.url && <ModelLayer url={item.url} onModelLoaded={setLoadedScene} />}
+      {item.url && (
+        <ModelErrorBoundary url={item.url}>
+          <Suspense fallback={null}>
+            <ModelLayer url={item.url} onModelLoaded={setLoadedScene} />
+          </Suspense>
+        </ModelErrorBoundary>
+      )}
       <group
         ref={groupRef}
         visible={item.visible !== false}
@@ -1034,7 +1151,7 @@ export const Furniture = React.memo(({
         ) : (
           <mesh
             ref={meshRef}
-            visible={item.type !== 'model' || !!loadedScene}
+            visible={item.type !== 'model'} // ARC-FIX: Hide fallback box while models are loading to prevent flickering
             geometry={geometry as any}
             userData={{ id: item.id, isFurniture: true, locked: item.locked }}
             castShadow={item.castShadow !== undefined ? item.castShadow : (!!realtimeShadows && (texConfig?.opacity ?? 1) > 0.8)}

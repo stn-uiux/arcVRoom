@@ -156,7 +156,8 @@ export const UI: React.FC<UIProps> = ({
     const url = URL.createObjectURL(blob);
     const a = window.document.createElement('a');
     a.href = url;
-    a.download = file.name.replace('.glb', '_optimized.glb');
+    const downloadName = file.name.replace(/\.(glb|gltf)$/i, '_optimized.glb');
+    a.download = downloadName;
     a.click();
     URL.revokeObjectURL(url);
   }, []);
@@ -1026,7 +1027,7 @@ export const UI: React.FC<UIProps> = ({
                             {/* Base Color Picker */}
                             <div className={`flex items-center justify-between p-3 bg-black/40 rounded-xl border border-white/5 shadow-inner transition-all ${selectedItem.textureId && selectedItem.textureId !== 'none' ? 'opacity-30 pointer-events-none' : ''}`}>
                               <div className="flex flex-col">
-                                <span className="text-[10px] font-black text-white/50 uppercase tracking-widest leading-none mb-1">Base Color Tint</span>
+                                <span className="text-[10px] font-black text-white/50 uppercase tracking-widest leading-none mb-1">{t('Base Color Tint', '베이스 색상 틴트')}</span>
                                 <span className="text-[10px] font-mono text-teal-500 uppercase tracking-widest">{selectedItem.color || 'Default'}</span>
                               </div>
                               <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-white/20 hover:border-teal-500 transition-all shadow-lg">
@@ -1181,6 +1182,75 @@ export const UI: React.FC<UIProps> = ({
                               );
                             })()}
                           </div>
+
+                          {/* Glass Material Controls (Manual Overrides) */}
+                          {selectedItem.hasGlass && (
+                            <div className="p-4 bg-teal-500/5 rounded-2xl border border-teal-500/20 shadow-inner space-y-4 animate-in fade-in slide-in-from-top-2 duration-400">
+                              <div className="flex items-center gap-2 mb-1 px-0.5">
+                                <Maximize className="w-3.5 h-3.5 text-teal-500" />
+                                <span className="text-[10px] font-black text-teal-500 uppercase tracking-widest">{t('Glass Properties', '유리 재질 속성')}</span>
+                              </div>
+                              
+                              {/* Glass Color */}
+                              <div className="flex items-center justify-between p-3 bg-black/40 rounded-xl border border-white/5 shadow-inner transition-all">
+                                <div className="flex flex-col">
+                                  <span className="text-[10px] font-black text-white/50 uppercase tracking-widest leading-none mb-1">{t('Glass Tint', '유리 색상')}</span>
+                                  <span className="text-[10px] font-mono text-teal-500 uppercase tracking-widest">{selectedItem.glassColor || 'Default'}</span>
+                                </div>
+                                <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-white/20 hover:border-teal-500 transition-all shadow-lg">
+                                  <input
+                                    type="color"
+                                    value={selectedItem.glassColor || '#ffffff'}
+                                    onChange={(e) => onUpdateItem(selectedItem.id, { glassColor: e.target.value })}
+                                    className="absolute -inset-4 w-16 h-16 cursor-pointer"
+                                  />
+                                  <div className="absolute inset-0 pointer-events-none bg-gradient-to-tr from-black/20 to-transparent" />
+                                </div>
+                              </div>
+
+                              {/* Glass Opacity */}
+                              <div className="space-y-2">
+                                <div className="flex justify-between text-[10px] font-black text-white/50 uppercase tracking-widest leading-none">
+                                  <span>{t('Glass Opacity', '유리 투명도')}</span>
+                                  <span className="text-teal-500">{(selectedItem.glassOpacity ?? 0.3).toFixed(2)}</span>
+                                </div>
+                                <input
+                                  type="range" min="0" max="1" step="0.01"
+                                  value={selectedItem.glassOpacity ?? 0.3}
+                                  onChange={(e) => onUpdateItem(selectedItem.id, { glassOpacity: parseFloat(e.target.value) })}
+                                  className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-teal-500"
+                                />
+                              </div>
+
+                              {/* Glass Metalness / Roughness */}
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <div className="flex justify-between text-[10px] font-black text-white/30 uppercase tracking-widest leading-none">
+                                    <span>{t('Metalness', '금속성')}</span>
+                                    <span className="text-teal-500">{(selectedItem.glassMetalness ?? 1.0).toFixed(1)}</span>
+                                  </div>
+                                  <input
+                                    type="range" min="0" max="1" step="0.1"
+                                    value={selectedItem.glassMetalness ?? 1.0}
+                                    onChange={(e) => onUpdateItem(selectedItem.id, { glassMetalness: parseFloat(e.target.value) })}
+                                    className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-teal-500"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <div className="flex justify-between text-[10px] font-black text-white/30 uppercase tracking-widest leading-none">
+                                    <span>{t('Roughness', '거칠기')}</span>
+                                    <span className="text-teal-500">{(selectedItem.glassRoughness ?? 0.0).toFixed(1)}</span>
+                                  </div>
+                                  <input
+                                    type="range" min="0" max="1" step="0.1"
+                                    value={selectedItem.glassRoughness ?? 0.0}
+                                    onChange={(e) => onUpdateItem(selectedItem.id, { glassRoughness: parseFloat(e.target.value) })}
+                                    className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-teal-500"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
 
                           <div className="pt-3 space-y-3">
                             <div className="flex items-center justify-between px-1">
@@ -1610,7 +1680,7 @@ export const UI: React.FC<UIProps> = ({
                   <div className="flex items-center justify-between mb-4 px-1.5 h-7">
                     <div className="flex items-center gap-2.5">
                       <Layers className="w-3.5 h-3.5 text-teal-500" />
-                      <h2 className="text-xs font-black uppercase text-white/50">{t('Custom Materials', '커스텀 재질')}</h2>
+                      <h2 className="text-xs font-black uppercase text-white/50">{t('Custom Materials', '커스텀 재질 관리')}</h2>
                     </div>
                     <button
                       onClick={() => {
