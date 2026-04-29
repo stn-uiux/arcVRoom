@@ -11,7 +11,9 @@ import {
   GizmoViewport,
   useHelper,
   Billboard,
-  Html
+  Html,
+  AccumulativeShadows,
+  RandomizedLight
 } from '@react-three/drei';
 import { Furniture } from './Furniture';
 import { EffectComposer, Bloom, Vignette, SMAA } from '@react-three/postprocessing';
@@ -112,8 +114,15 @@ function FitHandler({ trigger, objects }: { trigger: number, objects: FurnitureI
     }
 
     if (animRef.current) cancelAnimationFrame(animRef.current);
-
-    if (controls) (controls as any).enabled = false;
+    if (controls) {
+      const ctrl = controls as any;
+      ctrl.autoRotate = false; // Stop auto-rotation immediately
+      const wasDamping = ctrl.enableDamping;
+      ctrl.enableDamping = false; // Temporarily disable damping to kill inertia
+      ctrl.update();
+      ctrl.enableDamping = wasDamping;
+      ctrl.enabled = false;
+    }
 
     function animateFrame(time: number) {
       const elapsed = time - startTime;
@@ -822,6 +831,18 @@ export const Scene = forwardRef<any, SceneProps>(({
   state, onSelect, onBoxSelect, onSelectSub, previewSelectedIds, selectedSubId,
   onUpdate, onUpdateLight, onUpdateItems, onUpdateLights, onZoomChange, fitSignal, zoomRef, panRef, shiftPressed, ctrlPressed, showGizmos, onUpdateState, viewCenterRef
 }, ref) => {
+  const [inTransition, startTransition] = React.useTransition();
+  const [currentPreset, setCurrentPreset] = useState(state.environment);
+
+  // Sync preset with transition to prevent suspense flickers
+  useEffect(() => {
+    if (state.environment !== currentPreset) {
+      startTransition(() => {
+        setCurrentPreset(state.environment);
+      });
+    }
+  }, [state.environment, currentPreset]);
+
   // Silence specific deprecation warnings from libraries
   useEffect(() => {
     const originalWarn = console.warn;
@@ -1168,14 +1189,35 @@ export const Scene = forwardRef<any, SceneProps>(({
         ))}
         <Suspense fallback={null}>
           <Environment
-            preset={state.environment as any}
+            preset={currentPreset as any}
             background={!state.showBackgroundColor}
             far={1000}
-            resolution={256}
+            resolution={1024}
             environmentIntensity={state.showEnvironment ? state.intensity : 0}
-            blur={state.environmentBlur ?? 0.8}
+            blur={state.environmentBlur ?? 0}
           />
         </Suspense>
+
+        {/* ARC-FIX: Premium Soft Shadows like the requested snippet */}
+        <group position={[0, -0.01, 0]}>
+          <AccumulativeShadows
+            temporal
+            frames={100}
+            color="#000000"
+            colorBlend={0.5}
+            opacity={0.6}
+            scale={20}
+            alphaTest={0.85}
+          >
+            <RandomizedLight
+              amount={8}
+              radius={10}
+              ambient={0.5}
+              position={[10, 10, 5]}
+              bias={0.001}
+            />
+          </AccumulativeShadows>
+        </group>
 
         {state.showBackgroundColor && (
           <color attach="background" args={[state.backgroundColor || '#ffffff']} />

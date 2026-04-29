@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useEffect, useState, Suspense } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
-import { TransformControls, useGLTF, Html, PivotControls, useTexture } from '@react-three/drei';
+import { TransformControls, useGLTF, Html, PivotControls, useTexture, Center } from '@react-three/drei';
 import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
 // @ts-ignore
 import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils';
@@ -34,11 +34,10 @@ const sanitizeMaterial = (mat: any, environment: THREE.Texture | null = null) =>
       if (mat[slot] === undefined) mat[slot] = null;
     });
 
-    if (environment) {
-      mat.envMap = environment;
-    } else if (mat.envMap === undefined) {
-      mat.envMap = null;
-    }
+    // ARC-FIX: Explicitly set envMap to null to allow perfect inheritance from scene.environment.
+    // This enables Three.js's internal PMREM optimizations and prevents seams/pinching artifacts
+    // that occur during manual environment map assignment.
+    mat.envMap = null;
     
     if (mat.isMeshPhysicalMaterial) {
       if (mat.transmission === undefined) mat.transmission = 0;
@@ -157,7 +156,7 @@ const SubtractionGizmo: React.FC<{
             }}
           >
             {sub.type === 'box' && <boxGeometry args={sub.dimensions} />}
-            {sub.type === 'sphere' && <sphereGeometry args={[sub.dimensions[0] / 2, 16, 16]} />}
+            {sub.type === 'sphere' && <sphereGeometry args={[sub.dimensions[0] / 2, 128, 64]} />}
             {sub.type === 'cylinder' && <cylinderGeometry args={[sub.dimensions[0] / 2, sub.dimensions[0] / 2, sub.dimensions[1], 16]} />}
             <meshBasicMaterial visible={false} />
           </mesh>
@@ -847,14 +846,17 @@ export const Furniture = React.memo(({
           baseGeo = new THREE.BoxGeometry(d[0], d[1], d[2]).translate(0, d[1] / 2, 0);
         }
       }
-      else if (item.type === 'sphere') baseGeo = new THREE.SphereGeometry(d[0] / 2, 32, 16).translate(0, d[1] / 2, 0);
+      else if (item.type === 'sphere') baseGeo = new THREE.SphereGeometry(d[0] / 2, 128, 128).translate(0, d[1] / 2, 0);
 
       else if (item.type === 'plane') baseGeo = new THREE.PlaneGeometry(d[0], d[2]).rotateX(-Math.PI / 2).translate(0, 0, 0);
       else if (item.type === 'clock') baseGeo = new THREE.BoxGeometry(1.2, 0.85, 0.05).translate(0, 0.425, 0);
       else baseGeo = new THREE.BoxGeometry(d[0], d[1], d[2]);
 
-      // Ensure normals are correctly computed for lighting and transparency
-      baseGeo.computeVertexNormals();
+      // ARC-FIX: Do NOT recompute normals for primitives (Sphere, Box, etc.) if they already have them.
+      // Recalculating normals on an indexed Sphere causes a visible seam at the UV boundary.
+      if (!baseGeo.attributes.normal) {
+        baseGeo.computeVertexNormals();
+      }
       baseGeo.computeBoundingBox();
 
       // Add uv2 for AO map support (standard requirement for MeshStandardMaterial.aoMap)
@@ -1146,12 +1148,40 @@ export const Furniture = React.memo(({
       >
         {model ? (
           <primitive object={model} ref={meshRef} />
+        ) : item.type === 'sphere' ? (
+          <Center top>
+            <mesh
+              ref={meshRef}
+              visible={true}
+              userData={{ id: item.id, isFurniture: true, locked: item.locked }}
+              castShadow={item.castShadow !== undefined ? item.castShadow : (!!realtimeShadows && (texConfig?.opacity ?? 1) > 0.8)}
+              receiveShadow={!!realtimeShadows}
+              renderOrder={isSelected || isPreviewSelected ? 20 : (texConfig?.opacity ?? 1) < 0.99 ? 10 : 0}
+              frustumCulled={false}
+            >
+              <sphereGeometry args={[(item.dimensions?.[0] || 1.5) / 2, 64, 64]} />
+              <meshStandardMaterial
+                color={(item.textureId && item.textureId !== 'none') ? (texConfig?.color || "#ffffff") : (item.color || texConfig?.color || (isSelected || isPreviewSelected ? "#60a5fa" : "#94a3b8"))}
+                map={finalTextures?.color || null}
+                normalMap={finalTextures?.normal || null}
+                roughnessMap={finalTextures?.roughness || null}
+                metalnessMap={finalTextures?.metalness || null}
+                envMap={null}
+                metalness={item.glassMetalness ?? 1.0}
+                roughness={item.glassRoughness ?? 0.5}
+                envMapIntensity={item.showReflection === false ? 0 : (item.envMapIntensity ?? 1.0)}
+                transparent={(texConfig?.opacity ?? 1) < 0.99 || !!finalTextures?.opacity}
+                opacity={texConfig?.opacity ?? 1}
+                side={item.flipNormals ? THREE.BackSide : THREE.DoubleSide}
+              />
+            </mesh>
+          </Center>
         ) : item.type === 'clock' ? (
           <DigitalClock ref={meshRef} color={item.color} emissiveIntensity={item.emissiveIntensity} />
         ) : (
           <mesh
             ref={meshRef}
-            visible={item.type !== 'model'} // ARC-FIX: Hide fallback box while models are loading to prevent flickering
+            visible={item.type !== 'model'}
             geometry={geometry as any}
             userData={{ id: item.id, isFurniture: true, locked: item.locked }}
             castShadow={item.castShadow !== undefined ? item.castShadow : (!!realtimeShadows && (texConfig?.opacity ?? 1) > 0.8)}
@@ -1179,8 +1209,8 @@ export const Furniture = React.memo(({
               emissive={(item.textureId && item.textureId !== 'none') ? (texConfig?.color || '#000000') : (item.color || texConfig?.color || '#000000')}
               emissiveIntensity={texConfig?.emissiveIntensity ?? (item.emissiveIntensity || 0)}
               alphaMap={finalTextures?.opacity || null}
-              metalness={texConfig?.metalness ?? 0.1}
-              roughness={texConfig?.roughness ?? 0.7}
+              metalness={item.type === 'sphere' ? (item.glassMetalness ?? 1.0) : (texConfig?.metalness ?? 0.1)}
+              roughness={item.type === 'sphere' ? (item.glassRoughness ?? 0.5) : (texConfig?.roughness ?? 0.7)}
               envMapIntensity={item.showReflection === false ? 0 : (item.envMapIntensity ?? 1.0)}
               transparent={(texConfig?.opacity ?? 1) < 0.99 || !!finalTextures?.opacity}
               opacity={texConfig?.opacity ?? 1}
@@ -1195,7 +1225,6 @@ export const Furniture = React.memo(({
                 item.flipNormals ? THREE.BackSide :
                   item.doubleSide === true || item.type === 'sphere' ? THREE.DoubleSide : THREE.FrontSide
               }
-
             />
           </mesh>
         )}

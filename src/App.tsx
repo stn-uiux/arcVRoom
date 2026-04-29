@@ -154,6 +154,10 @@ export default function App() {
       newItem.url = data;
     } else if (type === 'clock') {
       newItem.dimensions = [1.2, 0.85, 0.05];
+    } else if (type === 'sphere') {
+      newItem.dimensions = [1.5, 1.5, 1.5];
+      newItem.glassMetalness = 1.0;
+      newItem.glassRoughness = 0.5;
     } else {
       newItem.url = data;
     }
