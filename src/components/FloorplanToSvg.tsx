@@ -2950,9 +2950,9 @@ ${pathsSvg}
                                         const val = parseInt(e.target.value);
                                         if (!isNaN(val) && val > 0) handleScaleAllContents(val);
                                       }}
-                                      className="flex-1 bg-black/60 border border-white/10 rounded-lg px-2 py-2 text-[13px] font-bold text-white focus:border-teal-500/50 outline-none h-9"
+                                      className="flex-1 min-w-0 bg-black/60 border border-white/10 rounded-lg px-2 py-2 text-[13px] font-bold text-white focus:border-teal-500/50 outline-none h-9"
                                     />
-                                    <div className="flex flex-col justify-center px-2 bg-white/5 rounded-lg border border-white/5">
+                                    <div className="flex flex-col justify-center px-2 bg-white/5 rounded-lg border border-white/5 shrink-0">
                                       <span className="text-[9px] text-white/40 leading-none">H: {Math.round(box.h)}px</span>
                                     </div>
                                   </div>
