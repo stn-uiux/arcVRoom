@@ -1551,6 +1551,7 @@ ${pathsSvg}
     // Nothing was hit → deselect layer (true background click in editMode)
     setSelectedPathId(null);
     setSelectedPathIds(new Set());
+    setEditMode(false);
 
     if (isCtrl) {
       // Start Drag-to-Select (Marquee)
