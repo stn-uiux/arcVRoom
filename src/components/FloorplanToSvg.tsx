@@ -1446,8 +1446,9 @@ ${pathsSvg}
       svgPt.y = Math.round(svgPt.y);
     }
 
-    // 2. Deselect in Select Mode (Background click)
-    if (drawTool === 'select' || editMode) {
+    // 2. Deselect in Select Mode (Background click) — but NOT in editMode yet
+    //    In editMode, we first check if a point/handle was hit before deselecting
+    if (!editMode && (drawTool === 'select')) {
       setSelectedPathId(null);
       setSelectedPathIds(new Set());
       setSelectedPoints(new Set());
@@ -1547,13 +1548,17 @@ ${pathsSvg}
       }
     }
 
+    // Nothing was hit → deselect layer (true background click in editMode)
+    setSelectedPathId(null);
+    setSelectedPathIds(new Set());
+
     if (isCtrl) {
       // Start Drag-to-Select (Marquee)
       setSelectionBox({ x1: svgPt.x, y1: svgPt.y, x2: svgPt.x, y2: svgPt.y });
     } else {
       setSelectedPoints(new Set());
     }
-  }, [editMode, svgPaths, zoom, selectedPoints, isSpacePressed, drawTool]);
+  }, [editMode, svgPaths, zoom, selectedPoints, isSpacePressed, drawTool, addNodeGuide, selectedPathId, enablePixelSnap, commitChange]);
 
   const handleSvgMouseMove = useCallback((e: React.MouseEvent | MouseEvent) => {
     const svgPt = getCanvasCoords(e.clientX, e.clientY);
