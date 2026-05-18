@@ -388,24 +388,26 @@ export default function App() {
       if (mode === 'all') {
         if (isFurniture || isLight) {
           const clone = obj.clone();
-          // Clean up gizmos inside the clone
+          // Clean up gizmos inside the clone (two-pass to avoid mutating children mid-traverse)
+          const toRemove: any[] = [];
           clone.traverse((child: any) => {
             if (child.userData?.isGizmo || child.userData?.isHelper || child.name?.includes('Pivot')) {
-              child.visible = false; // Hide from export
-              // Or better: remove from clone
-              if (child.parent) child.parent.remove(child);
+              toRemove.push(child);
             }
           });
+          toRemove.forEach((child: any) => { if (child.parent) child.parent.remove(child); });
           exportScene.add(clone);
         }
       } else if (mode === 'objects') {
         if (isFurniture) {
           const clone = obj.clone();
+          const toRemove: any[] = [];
           clone.traverse((child: any) => {
             if (child.userData?.isGizmo || child.userData?.isHelper || child.name?.includes('Pivot')) {
-              if (child.parent) child.parent.remove(child);
+              toRemove.push(child);
             }
           });
+          toRemove.forEach((child: any) => { if (child.parent) child.parent.remove(child); });
           exportScene.add(clone);
         }
       } else if (mode === 'lights') {

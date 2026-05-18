@@ -56,6 +56,34 @@ const sanitizeMaterial = (mat: any, environment: THREE.Texture | null = null) =>
       if (mat.iridescenceIOR === undefined) mat.iridescenceIOR = 1.3;
       if (mat.anisotropy === undefined) mat.anisotropy = 0;
       if (mat.anisotropyRotation === undefined) mat.anisotropyRotation = 0;
+
+      // ARC-FIX: Aggressively strip texture maps for disabled Physical features.
+      // Each map consumes a GPU texture unit; MeshPhysicalMaterial can easily exceed
+      // the WebGL MAX_TEXTURE_IMAGE_UNITS limit (16) if unused maps are left assigned.
+      if (!mat.clearcoat) {
+        mat.clearcoatMap = null;
+        mat.clearcoatRoughnessMap = null;
+        mat.clearcoatNormalMap = null;
+      }
+      if (!mat.sheen) {
+        mat.sheenColorMap = null;
+        mat.sheenRoughnessMap = null;
+      }
+      if (!mat.iridescence) {
+        mat.iridescenceMap = null;
+        mat.iridescenceThicknessMap = null;
+      }
+      if (!mat.transmission) {
+        mat.transmissionMap = null;
+        mat.thicknessMap = null;
+      }
+      if (!mat.anisotropy) {
+        mat.anisotropyMap = null;
+      }
+      if (mat.specularIntensity === 1 && (!mat.specularColor || mat.specularColor.equals(new THREE.Color(1, 1, 1)))) {
+        mat.specularIntensityMap = null;
+        mat.specularColorMap = null;
+      }
     }
     mat.needsUpdate = true;
   }

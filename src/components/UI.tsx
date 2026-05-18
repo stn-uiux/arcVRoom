@@ -1811,161 +1811,10 @@ export const UI: React.FC<UIProps> = ({
 
             {activeTab === 'settings' && (
               <div className="space-y-8 animate-in fade-in slide-in-from-right-2 duration-300 pb-12">
-                {/* 3. Environment Section */}
-                <section>
-                  <div className="flex items-center gap-2.5 mb-1 px-1.5 h-7">
-                    <Sun className="w-3.5 h-3.5 text-teal-500" />
-                    <h2 className="text-xs font-black uppercase text-white/50">{t('Environment', '환경 설정')}</h2>
-                  </div>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {['city', 'sunset', 'night', 'warehouse'].map(env => (
-                      <button
-                        key={env}
-                        onClick={() => onUpdateState({ environment: env as any })}
-                        className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${state.environment === env ? 'bg-white text-black border-white shadow-lg' : 'bg-white/5 text-white/50 border-white/5 hover:bg-white/10'}`}
-                      >
-                        {env}
-                      </button>
-                    ))}
-                  </div>
 
-                  <div className="mt-4 space-y-4 px-1.5">
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-[10px] font-black text-white/50 uppercase tracking-widest leading-none">
-                        <span>{t('Intensity', '강도')}</span>
-                        <span className="text-teal-500">{(state.intensity || 0).toFixed(2)}</span>
-                      </div>
-                      <input
-                        type="range" min="0" max="5" step="0.01"
-                        value={state.intensity || 0}
-                        onChange={(e) => onUpdateState({ intensity: parseFloat(e.target.value) })}
-                        className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-teal-500"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-[10px] font-black text-white/50 uppercase tracking-widest leading-none">
-                        <span>{t('Background Blur', '배경 흐림')}</span>
-                        <span className="text-teal-500">{(state.environmentBlur || 0).toFixed(2)}</span>
-                      </div>
-                      <input
-                        type="range" min="0" max="1" step="0.01"
-                        value={state.environmentBlur || 0}
-                        onChange={(e) => onUpdateState({ environmentBlur: parseFloat(e.target.value) })}
-                        className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-teal-500"
-                      />
-                    </div>
-                    <div className="space-y-1.5 mt-4">
-                      {[
-                        { label: t('Environment', '환경 광원'), sub: t('Enable HDRI lighting source', 'HDRI 조명 활성화'), state: state.showEnvironment, key: 'showEnvironment' },
-                        { label: t('Background Color', '배경 색상'), sub: t('Solid canvas backdrop', '단색 배경 채우기'), state: state.showBackgroundColor, key: 'showBackgroundColor' },
-                        { label: t('Dynamic Shadows', '동적 그림자'), sub: t('Ray-based light projections', '빛 투사에 따른 실시간 그림자'), state: state.realtimeShadows, key: 'realtimeShadows' },
-                        { label: t('Ground Grid', '바닥 그리드'), sub: t('Scene alignment reference', '배치 가이드 그리드 표시'), state: state.showGrid, key: 'showGrid' }
-                      ].map((item) => (
-                        <div key={item.key} className="space-y-3 p-3 bg-black/40 rounded-xl border border-white/5 shadow-inner">
-                          <div className="flex items-center justify-between">
-                            <div className="flex flex-col">
-                              <span className="text-[10px] font-black text-white/50 uppercase tracking-widest">{item.label}</span>
-                              <span className="text-[10px] text-white/30 uppercase tracking-tighter">{item.sub}</span>
-                            </div>
-                            <button
-                              onClick={() => onUpdateState({ [item.key]: !(state as any)[item.key] })}
-                              className={`w-10 h-5 rounded-full transition-all relative p-0.5 border ${item.state ? 'bg-teal-500/20 border-teal-500/30' : 'bg-black/40 border-white/10'}`}
-                            >
-                              <div className={`w-3.5 h-3.5 rounded-full transition-all ${item.state ? 'translate-x-5 bg-teal-500 shadow-[0_0_10px_rgba(45,212,191,0.5)]' : 'translate-x-0 bg-white/20'}`} />
-                            </button>
-                          </div>
-
-                          {item.key === 'showBackgroundColor' && item.state && (
-                            <div className="pt-3 border-t border-white/5 space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                              <div className="flex justify-between text-[10px] font-black text-white/30 uppercase tracking-widest leading-none">
-                                <span>{t('Backdrop Color', '배경 색상')}</span>
-                                <span className="text-teal-500 font-mono uppercase">{state.backgroundColor}</span>
-                              </div>
-                              <input
-                                type="color"
-                                value={state.backgroundColor}
-                                onChange={(e) => onUpdateState({ backgroundColor: e.target.value })}
-                                className="w-full h-6 bg-transparent cursor-pointer rounded overflow-hidden border-none"
-                              />
-                            </div>
-                          )}
-
-                          {item.key === 'showGrid' && item.state && (
-                            <div className="pt-3 border-t border-white/5 space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
-                              <div className="space-y-2">
-                                <div className="flex justify-between text-[10px] font-black text-white/30 uppercase tracking-widest leading-none">
-                                  <span>{t('Grid Color', '그리드 색상')}</span>
-                                  <span className="text-teal-500 font-mono uppercase">{state.gridColor}</span>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                  <input
-                                    type="color"
-                                    value={state.gridColor}
-                                    onChange={(e) => onUpdateState({ gridColor: e.target.value })}
-                                    className="w-full h-6 bg-transparent cursor-pointer rounded overflow-hidden border-none"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </section>
-
-                {/* 4. Post-processing Section */}
-                <section className="pt-6 border-t border-white/5 space-y-4">
-                  <div className="flex items-center gap-2.5 mb-1 px-1.5 h-7">
-                    <Maximize className="w-3.5 h-3.5 text-teal-500" />
-                    <h2 className="text-xs font-black uppercase tracking-widest text-white/50">{t('Post Processing', '후처리 설정')}</h2>
-                  </div>
-
-                  <div className="space-y-4 px-1.5">
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-[10px] font-black text-white/50 uppercase tracking-widest leading-none">
-                        <span>{t('Vignette Size', '비네트 크기')}</span>
-                        <span className="text-teal-500">{(state.vignetteSize || 0).toFixed(2)}</span>
-                      </div>
-                      <input
-                        type="range" min="0" max="1" step="0.01"
-                        value={state.vignetteSize || 0}
-                        onChange={(e) => onUpdateState({ vignetteSize: parseFloat(e.target.value) })}
-                        className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-teal-500"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-[10px] font-black text-white/50 uppercase tracking-widest leading-none">
-                        <span>{t('Vignette Darkness', '비네트 어두움')}</span>
-                        <span className="text-teal-500">{(state.vignetteDarkness || 0).toFixed(2)}</span>
-                      </div>
-                      <input
-                        type="range" min="0" max="1" step="0.01"
-                        value={state.vignetteDarkness || 0}
-                        onChange={(e) => onUpdateState({ vignetteDarkness: parseFloat(e.target.value) })}
-                        className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-teal-500"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-[10px] font-black text-white/50 uppercase tracking-widest leading-none">
-                        <span>{t('Bloom Intensity', '블룸 강도')}</span>
-                        <span className="text-teal-500">{(state.bloomIntensity || 0).toFixed(2)}</span>
-                      </div>
-                      <input
-                        type="range" min="0" max="2" step="0.01"
-                        value={state.bloomIntensity || 0}
-                        onChange={(e) => onUpdateState({ bloomIntensity: parseFloat(e.target.value) })}
-                        className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-teal-500"
-                      />
-                    </div>
-                  </div>
-                </section>
 
                 {/* 4. Scene Management Section */}
-                <section className="pt-6 border-t border-white/5 space-y-3">
+                <section className="space-y-3">
                   <div className="flex items-center gap-2.5 mb-1 px-1.5 h-7">
                     <Settings className="w-3.5 h-3.5 text-teal-500" />
                     <h2 className="text-xs font-black uppercase tracking-widest text-white/50">{t('Scene Management', '씬 관리')}</h2>
@@ -1973,7 +1822,7 @@ export const UI: React.FC<UIProps> = ({
                   <div className="space-y-2">
                     <div className="flex flex-col gap-1.5">
                       <div className="text-[10px] font-black text-white/30 uppercase tracking-[0.1em] px-1.5 mb-1 flex items-center gap-2">
-                        <Download size={10} /> {t('GLB Export Options', 'GLB 내보내기 옵션')}
+                        <Download size={10} /> {t('GLB Export', 'GLB 내보내기')}
                       </div>
                       <div className="grid grid-cols-1 gap-1.5">
                         <button
@@ -1982,25 +1831,11 @@ export const UI: React.FC<UIProps> = ({
                         >
                           <div className="flex items-center gap-3">
                             <Layers size={14} className="group-hover:scale-110 transition-transform" />
-                            <span>{t('Export All', '전체 내보내기')}</span>
+                            <span>{t('Export GLB', 'GLB 내보내기')}</span>
                           </div>
                           <span className="text-[10px] opacity-50 font-mono">.GLB</span>
                         </button>
 
-                        <div className="grid grid-cols-2 gap-1.5">
-                          <button
-                            onClick={() => onExport('objects')}
-                            className="flex items-center justify-center gap-2 px-3 py-2.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white font-black uppercase tracking-widest rounded-xl text-[10px] transition-all border border-white/5 group"
-                          >
-                            <Box size={12} /> {t('Objects Only', '오브젝트만')}
-                          </button>
-                          <button
-                            onClick={() => onExport('lights')}
-                            className="flex items-center justify-center gap-2 px-3 py-2.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white font-black uppercase tracking-widest rounded-xl text-[10px] transition-all border border-white/5 group"
-                          >
-                            <Lightbulb size={12} /> {t('Lights Only', '조명만')}
-                          </button>
-                        </div>
                         <button
                           onClick={() => setShowCompressor(true)}
                           className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-teal-500/10 hover:bg-teal-500 text-teal-500 hover:text-black font-black uppercase tracking-widest rounded-xl text-[10px] transition-all border border-teal-500/20 group mt-1"
