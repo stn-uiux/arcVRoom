@@ -1548,15 +1548,14 @@ ${pathsSvg}
       }
     }
 
-    // Nothing was hit → deselect layer (true background click in editMode)
-    setSelectedPathId(null);
-    setSelectedPathIds(new Set());
-    setEditMode(false);
-
     if (isCtrl) {
       // Start Drag-to-Select (Marquee)
       setSelectionBox({ x1: svgPt.x, y1: svgPt.y, x2: svgPt.x, y2: svgPt.y });
     } else {
+      // Nothing was hit → deselect layer (true background click in editMode)
+      setSelectedPathId(null);
+      setSelectedPathIds(new Set());
+      setEditMode(false);
       setSelectedPoints(new Set());
     }
   }, [editMode, svgPaths, zoom, selectedPoints, isSpacePressed, drawTool, addNodeGuide, selectedPathId, enablePixelSnap, commitChange]);
@@ -1832,6 +1831,7 @@ ${pathsSvg}
     if (draggingPoint && selectedPathId && selectedPoints.size > 0 && dragStartRef.current && dragInitialPosRef.current) {
       ignoreClickRef.current = true;
       const isShift = e.shiftKey;
+      const isAlt = e.altKey;
       let deltaX = svgPt.x - dragStartRef.current.x;
       let deltaY = svgPt.y - dragStartRef.current.y;
 
