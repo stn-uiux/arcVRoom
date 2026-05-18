@@ -167,10 +167,8 @@ export const MaterialsLibrary: React.FC<MaterialsLibraryProps> = ({ onAddTexture
           </div>
         ))}
 
-        <div className="aspect-square bg-white/[0.01] border border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center gap-2 opacity-50">
-          <Layers size={20} className="text-white/10" />
-          <span className="text-[10px] font-bold text-white/10 uppercase text-center px-4">Upload to /public/materials to add more</span>
-        </div>
+
+
       </div>
     </div>
   );

@@ -570,6 +570,99 @@ function getPathDataForRender(path: SvgPath): string {
   return path.subPaths.map(points => pathToSvgD(points, path.closed)).join(' ');
 }
 
+function getRotatedCursor(handleId: string, rotation: number): string {
+  const handleAngles: Record<string, number> = {
+    e: 0,
+    se: 45,
+    s: 90,
+    sw: 135,
+    w: 180,
+    nw: 225,
+    n: 270,
+    ne: 315,
+  };
+  const originalAngle = handleAngles[handleId];
+  if (originalAngle === undefined) return 'default';
+
+  const totalAngle = (originalAngle + rotation) % 360;
+
+  // Build a beautifully rendered SVG of a double-headed arrow rotated by totalAngle.
+  // Slate/dark fill with thick white stroke for gorgeous modern CAD aesthetic.
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+    <g transform="translate(16 16) scale(1.2) translate(-16 -16) rotate(${totalAngle} 16 16)">
+      <path d="M 6 16 L 11 11 V 14 H 21 V 11 L 26 16 L 21 21 V 18 H 11 V 21 Z" fill="#ffffff" stroke="#000000" stroke-width="1" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+    </g>
+  </svg>`;
+
+  try {
+    const encoded = btoa(unescape(encodeURIComponent(svg)));
+    return `url(data:image/svg+xml;base64,${encoded}) 16 16, pointer`;
+  } catch (e) {
+    const index = Math.round(totalAngle / 45) % 8;
+    const cursors = [
+      'ew-resize',
+      'nwse-resize',
+      'ns-resize',
+      'nesw-resize',
+      'ew-resize',
+      'nwse-resize',
+      'ns-resize',
+      'nesw-resize'
+    ];
+    return cursors[index];
+  }
+}
+
+function getPathTrueCenter(path: SvgPath): { x: number; y: number } {
+  if (path.subPaths.length === 0) return { x: 0, y: 0 };
+
+  let sumX = 0, sumY = 0, count = 0;
+  path.subPaths.forEach(pts => pts.forEach(p => {
+    sumX += p.x;
+    sumY += p.y;
+    count++;
+  }));
+  if (count === 0) return { x: 0, y: 0 };
+  const centroid = { x: sumX / count, y: sumY / count };
+
+  const angleDeg = path.rotation || 0;
+  if (angleDeg === 0) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    path.subPaths.forEach(pts => pts.forEach(p => {
+      if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+    }));
+    return { x: minX + (maxX - minX) / 2, y: minY + (maxY - minY) / 2 };
+  }
+
+  const angleRad = (-angleDeg * Math.PI) / 180;
+  const cos = Math.cos(angleRad);
+  const sin = Math.sin(angleRad);
+
+  let uMinX = Infinity, uMinY = Infinity, uMaxX = -Infinity, uMaxY = -Infinity;
+  path.subPaths.forEach(pts => pts.forEach(p => {
+    const rx = p.x - centroid.x;
+    const ry = p.y - centroid.y;
+    const ux = rx * cos - ry * sin + centroid.x;
+    const uy = rx * sin + ry * cos + centroid.y;
+    if (ux < uMinX) uMinX = ux; if (ux > uMaxX) uMaxX = ux;
+    if (uy < uMinY) uMinY = uy; if (uy > uMaxY) uMaxY = uy;
+  }));
+
+  const localCenter = { x: uMinX + (uMaxX - uMinX) / 2, y: uMinY + (uMaxY - uMinY) / 2 };
+
+  const backRad = (angleDeg * Math.PI) / 180;
+  const bCos = Math.cos(backRad);
+  const bSin = Math.sin(backRad);
+  const lrx = localCenter.x - centroid.x;
+  const lry = localCenter.y - centroid.y;
+
+  return {
+    x: lrx * bCos - lry * bSin + centroid.x,
+    y: lrx * bSin + lry * bCos + centroid.y
+  };
+}
+
 // Parse SVG path 'd' attribute into Point[] arrays (subPaths)
 function parseSvgPathD(d: string): { subPaths: Point[][]; closed: boolean } {
   const subPaths: Point[][] = [];
@@ -739,7 +832,7 @@ export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose,
     const box = getFullBoundingBox();
     if (box.w === 0) return;
     const ratio = newTotalWidth / box.w;
-    
+
     const nextPaths = svgPaths.map(path => ({
       ...path,
       subPaths: path.subPaths.map(sub => sub.map(pt => ({
@@ -754,7 +847,7 @@ export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose,
         } : undefined
       })))
     }));
-    
+
     setSvgPaths(nextPaths);
     setCanvasSize(prev => ({
       width: prev.width * ratio,
@@ -824,7 +917,7 @@ export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose,
     const viewportH = viewportRef.current.clientHeight;
 
     const newZoom = 1;
-    
+
     const cx = box.x + box.w / 2;
     const cy = box.y + box.h / 2;
 
@@ -884,7 +977,7 @@ export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose,
     const scale = newWidth / canvasSize.width;
     const newHeight = canvasSize.height * scale;
     setCanvasSize({ width: newWidth, height: newHeight });
-    
+
     setSvgPaths(prev => {
       const np = prev.map(p => ({
         ...p,
@@ -924,7 +1017,7 @@ export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose,
     setSvgPaths(prev => {
       const path = prev.find(p => p.id === pathId);
       if (!path) return prev;
-      
+
       const currentRotation = path.rotation || 0;
       const targetRotation = newRotation !== undefined ? newRotation : currentRotation;
 
@@ -937,7 +1030,7 @@ export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose,
 
       // Handle Rotation change first if requested
       if (newRotation !== undefined && newRotation !== currentRotation) {
-        const center = { x: minX + (maxX - minX) / 2, y: minY + (maxY - minY) / 2 };
+        const center = getPathTrueCenter(path);
         const angleDelta = (newRotation - currentRotation) * Math.PI / 180;
         const cos = Math.cos(angleDelta);
         const sin = Math.sin(angleDelta);
@@ -974,7 +1067,7 @@ export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose,
       const oldW = maxX - minX;
       const oldH = maxY - minY;
       if (oldW === 0 || oldH === 0) return prev;
-      
+
       const scaleX = newW / oldW;
       const scaleY = newH / oldH;
       const dx = newX - minX;
@@ -1010,13 +1103,13 @@ export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose,
     const p2Idx = svgPaths.findIndex(p => p.id === ids[1]);
     const baseIdx = Math.max(p1Idx, p2Idx);
     const topIdx = Math.min(p1Idx, p2Idx);
-    
+
     const p1 = svgPaths[baseIdx];
     const p2 = svgPaths[topIdx];
     if (!p1 || !p2) return;
 
     paper.setup(new paper.Size(1000, 1000));
-    
+
     const d1 = p1.subPaths.map(points => pathToSvgD(points, p1.closed)).join(' ');
     const d2 = p2.subPaths.map(points => pathToSvgD(points, p2.closed)).join(' ');
 
@@ -1053,7 +1146,7 @@ export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose,
         if (p.id === p2.id) return null;    // Remove top
         return p;
       }).filter(Boolean) as SvgPath[];
-      
+
       latestPathsRef.current = nextPaths;
       commitChange(nextPaths);
       return nextPaths;
@@ -1146,7 +1239,7 @@ export const FloorplanToSvg: React.FC<FloorplanToSvgProps> = ({ isOpen, onClose,
               const currentMatrix = inheritedMatrix.multiply(localMatrix);
               const tagName = el.tagName.toLowerCase();
               const elId = el.getAttribute('id')?.toLowerCase();
-              
+
               let currentSpecialId = specialGroupId;
               if (elId === 'wall' || elId === 'glass' || elId === 'floor') {
                 currentSpecialId = elId;
@@ -1378,7 +1471,7 @@ ${pathsSvg}
       document.body.appendChild(link);
       link.click();
 
-    // Cleanup with generous timeout
+      // Cleanup with generous timeout
       setTimeout(() => {
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
@@ -1432,7 +1525,7 @@ ${pathsSvg}
 
   const handleSvgMouseDown = useCallback((e: React.MouseEvent) => {
     ignoreClickRef.current = false;
-    
+
     // 1. Panning Logic (Highest Priority)
     if (isSpacePressed || e.button === 2 || e.button === 1) {
       setIsPanning(true);
@@ -1651,32 +1744,48 @@ ${pathsSvg}
     // Case 1.2: Layer Resizing
     if (resizingLayer && dragStartRef.current && dragInitialBoundsRef.current && dragInitialPathsRef.current) {
       ignoreClickRef.current = true;
-      const { handle } = resizingLayer;
-      const initB = dragInitialBoundsRef.current;
-      const initPaths = dragInitialPathsRef.current;
-      const isShift = e.shiftKey;
+      const pathId = resizingLayer.pathId;
+      const handle = resizingLayer.handle;
+      const initPaths = dragInitialPathsRef.current!;
+      const initB = dragInitialBoundsRef.current!;
       const isAlt = e.altKey;
-      
+      const isShift = e.shiftKey;
+
+      const oldP = initPaths.find(p => p.id === pathId);
+      if (!oldP) return;
+
       const dx = svgPt.x - dragStartRef.current.x;
       const dy = svgPt.y - dragStartRef.current.y;
+
+      const angleDeg = oldP.rotation || 0;
+      const angleRad = (angleDeg * Math.PI) / 180;
+      const cosAngle = Math.cos(angleRad);
+      const sinAngle = Math.sin(angleRad);
+
+      // Compute initial center in world space using invariant center
+      const center = getPathTrueCenter(oldP);
+
+      // Convert mouse delta to the un-rotated local coordinate system
+      const localDx = dx * cosAngle + dy * sinAngle;
+      const localDy = -dx * sinAngle + dy * cosAngle;
 
       let newX = initB.x; let newY = initB.y;
       let newW = initB.w; let newH = initB.h;
 
       if (isAlt) {
-        if (handle.includes('n')) newH = initB.h - dy * 2;
-        if (handle.includes('s')) newH = initB.h + dy * 2;
-        if (handle.includes('w')) newW = initB.w - dx * 2;
-        if (handle.includes('e')) newW = initB.w + dx * 2;
+        if (handle.includes('n')) newH = initB.h - localDy * 2;
+        if (handle.includes('s')) newH = initB.h + localDy * 2;
+        if (handle.includes('w')) newW = initB.w - localDx * 2;
+        if (handle.includes('e')) newW = initB.w + localDx * 2;
       } else {
-        if (handle.includes('n')) { newY = initB.y + dy; newH = initB.h - dy; }
-        if (handle.includes('s')) { newH = initB.h + dy; }
-        if (handle.includes('w')) { newX = initB.x + dx; newW = initB.w - dx; }
-        if (handle.includes('e')) { newW = initB.w + dx; }
+        if (handle.includes('n')) { newY = initB.y + localDy; newH = initB.h - localDy; }
+        if (handle.includes('s')) { newH = initB.h + localDy; }
+        if (handle.includes('w')) { newX = initB.x + localDx; newW = initB.w - localDx; }
+        if (handle.includes('e')) { newW = initB.w + localDx; }
       }
 
-      if (newW === 0) newW = 0.001;
-      if (newH === 0) newH = 0.001;
+      if (Math.abs(newW) < 0.1) newW = 0.1 * Math.sign(newW || 1);
+      if (Math.abs(newH) < 0.1) newH = 0.1 * Math.sign(newH || 1);
 
       let scaleX = newW / initB.w;
       let scaleY = newH / initB.h;
@@ -1698,26 +1807,52 @@ ${pathsSvg}
         newY = initB.y + (initB.h - initB.h * scaleY) / 2;
       }
 
+      const transformPoint = (x: number, y: number) => {
+        // 1. Un-rotate around center
+        const rx = x - center.x;
+        const ry = y - center.y;
+        const ux = rx * cosAngle + ry * sinAngle + center.x;
+        const uy = -rx * sinAngle + ry * cosAngle + center.y;
+
+        // 2. Scale & translate in local un-rotated space
+        const scaledUx = (ux - initB.x) * scaleX + newX;
+        const scaledUy = (uy - initB.y) * scaleY + newY;
+
+        // 3. Rotate back around center
+        const srx = scaledUx - center.x;
+        const sry = scaledUy - center.y;
+        const nx = srx * cosAngle - sry * sinAngle + center.x;
+        const ny = srx * sinAngle + sry * cosAngle + center.y;
+
+        return {
+          x: enablePixelSnap ? Math.round(nx) : nx,
+          y: enablePixelSnap ? Math.round(ny) : ny
+        };
+      };
+
       setSvgPaths(prev => {
         const np = [...prev];
         selectedPathIds.forEach(pathId => {
           const pIdx = np.findIndex(p => p.id === pathId);
           if (pIdx === -1) return;
-          const oldP = initPaths.find(p => p.id === pathId);
-          if (!oldP) return;
+          const oldPath = initPaths.find(p => p.id === pathId);
+          if (!oldPath) return;
 
           np[pIdx] = {
-            ...oldP,
-            subPaths: oldP.subPaths.map(pts => pts.map(pt => ({
-              x: enablePixelSnap ? Math.round((pt.x - initB.x) * scaleX + newX) : (pt.x - initB.x) * scaleX + newX,
-              y: enablePixelSnap ? Math.round((pt.y - initB.y) * scaleY + newY) : (pt.y - initB.y) * scaleY + newY,
-              bezier: pt.bezier ? {
-                cx1: enablePixelSnap ? Math.round((pt.bezier.cx1 - initB.x) * scaleX + newX) : (pt.bezier.cx1 - initB.x) * scaleX + newX,
-                cy1: enablePixelSnap ? Math.round((pt.bezier.cy1 - initB.y) * scaleY + newY) : (pt.bezier.cy1 - initB.y) * scaleY + newY,
-                cx2: enablePixelSnap ? Math.round((pt.bezier.cx2 - initB.x) * scaleX + newX) : (pt.bezier.cx2 - initB.x) * scaleX + newX,
-                cy2: enablePixelSnap ? Math.round((pt.bezier.cy2 - initB.y) * scaleY + newY) : (pt.bezier.cy2 - initB.y) * scaleY + newY,
-              } : undefined
-            })))
+            ...oldPath,
+            subPaths: oldPath.subPaths.map(pts => pts.map(pt => {
+              const mainPt = transformPoint(pt.x, pt.y);
+              return {
+                x: mainPt.x,
+                y: mainPt.y,
+                bezier: pt.bezier ? {
+                  cx1: transformPoint(pt.bezier.cx1, pt.bezier.cy1).x,
+                  cy1: transformPoint(pt.bezier.cx1, pt.bezier.cy1).y,
+                  cx2: transformPoint(pt.bezier.cx2, pt.bezier.cy2).x,
+                  cy2: transformPoint(pt.bezier.cx2, pt.bezier.cy2).y,
+                } : undefined
+              };
+            }))
           };
         });
         return np;
@@ -1731,7 +1866,7 @@ ${pathsSvg}
       const isShift = e.shiftKey;
       let deltaX = svgPt.x - dragStartRef.current.x;
       let deltaY = svgPt.y - dragStartRef.current.y;
-      
+
       if (isShift) {
         const totalDx = svgPt.x - dragInitialPosRef.current.x;
         const totalDy = svgPt.y - dragInitialPosRef.current.y;
@@ -1981,10 +2116,10 @@ ${pathsSvg}
               if (movedX || movedY || newBezier !== point.bezier) {
                 const finalX = point.x + movedX;
                 const finalY = point.y + movedY;
-                return { 
-                  x: enablePixelSnap ? Math.round(finalX) : finalX, 
-                  y: enablePixelSnap ? Math.round(finalY) : finalY, 
-                  bezier: newBezier 
+                return {
+                  x: enablePixelSnap ? Math.round(finalX) : finalX,
+                  y: enablePixelSnap ? Math.round(finalY) : finalY,
+                  bezier: newBezier
                 };
               }
               return point;
@@ -2049,7 +2184,7 @@ ${pathsSvg}
           if (svgPt.x >= px && svgPt.x <= px2 && svgPt.y >= py && svgPt.y <= py2) {
             // Only show add node guide if points are far enough apart visually (> 18px on screen)
             const distInSvg = Math.hypot(curr.x - prev.x, curr.y - prev.y);
-            if (distInSvg * zoom > 18) {
+            if (distInSvg * zoom > 50) {
               const dist = perpDist(svgPt, prev, curr);
               if (dist < hitRadius) {
                 let midP: Point;
@@ -2316,7 +2451,6 @@ ${pathsSvg}
               }
 
               if (modified) {
-                // If both are completely retracted, delete the curve entirely
                 if (newBz.cx1 === prev.x && newBz.cy1 === prev.y && newBz.cx2 === pt.x && newBz.cy2 === pt.y) {
                   const { bezier, ...rest } = pts[i];
                   pts[i] = rest;
@@ -2328,16 +2462,33 @@ ${pathsSvg}
           }
           // 2. Delete main points
           const filtered = pts.filter((_, i) => !selectedPoints.has(`${s}-${i}`));
-          return filtered.length >= 3 ? filtered : pts;
-        });
+          // Allow deletion: if all points removed → return empty (will be cleaned up below)
+          // If 1-2 points remain → keep original (degenerate geometry)
+          // If 3+ remain → use filtered
+          if (filtered.length === 0) return []; // entire sub-path deleted
+          if (filtered.length >= 3) return filtered;
+          return pts; // 1-2 points remaining = degenerate, keep original
+        }).filter(sub => sub.length > 0); // Remove empty sub-paths
+
+        if (newSubPaths.length === 0) return null; // entire path deleted
         return { ...p, subPaths: newSubPaths };
-      });
+      }).filter((p): p is SvgPath => p !== null); // Remove null (fully deleted) paths
+
       latestPathsRef.current = newPaths;
       commitChange(newPaths);
       return newPaths;
     });
+    // Clear selection; also clear path selection if path was deleted
     setSelectedPoints(new Set());
-  }, [selectedPoints, commitChange]);
+    setSvgPaths(current => {
+      if (selectedPathId && !current.find(p => p.id === selectedPathId)) {
+        setSelectedPathId(null);
+        setSelectedPathIds(new Set());
+        setEditMode(false);
+      }
+      return current;
+    });
+  }, [selectedPoints, selectedPathId, commitChange]);
 
   const deleteSelectedPath = useCallback(() => {
     if (selectedPathIds.size > 0) {
@@ -2441,10 +2592,10 @@ ${pathsSvg}
               </div>
 
               {step !== 'upload' && (
-                <button 
+                <button
                   onClick={() => {
                     if (window.confirm(t(
-                      'Are you sure you want to go back to the start? All changes will be lost.', 
+                      'Are you sure you want to go back to the start? All changes will be lost.',
                       '정말로 초기화면으로 돌아가시겠습니까? 모든 변경 사항이 사라집니다.'
                     ))) {
                       setStep('upload');
@@ -2468,7 +2619,7 @@ ${pathsSvg}
                 </div>
               )}
             </div>
-            
+
             <div className="flex items-center gap-3">
               {/* Language Toggle */}
               <div className="flex bg-white/5 border border-white/10 rounded-full p-0.5">
@@ -2903,30 +3054,30 @@ ${pathsSvg}
                               <div className="grid grid-cols-2 gap-2">
                                 <div>
                                   <span className="text-[9px] text-white/40 block mb-1">X</span>
-                                  <input type="number" value={Math.round(bounds.x)} onChange={e => { const val = parseFloat(e.target.value); if(!isNaN(val)) applyPathTransform(pathId, val, bounds.y, bounds.w, bounds.h); }} className="w-full bg-black/60 border border-white/10 rounded px-2 py-1 text-xs text-white" />
+                                  <input type="number" value={Math.round(bounds.x)} onChange={e => { const val = parseFloat(e.target.value); if (!isNaN(val)) applyPathTransform(pathId, val, bounds.y, bounds.w, bounds.h); }} className="w-full bg-black/60 border border-white/10 rounded px-2 py-1 text-xs text-white" />
                                 </div>
                                 <div>
                                   <span className="text-[9px] text-white/40 block mb-1">Y</span>
-                                  <input type="number" value={Math.round(bounds.y)} onChange={e => { const val = parseFloat(e.target.value); if(!isNaN(val)) applyPathTransform(pathId, bounds.x, val, bounds.w, bounds.h); }} className="w-full bg-black/60 border border-white/10 rounded px-2 py-1 text-xs text-white" />
+                                  <input type="number" value={Math.round(bounds.y)} onChange={e => { const val = parseFloat(e.target.value); if (!isNaN(val)) applyPathTransform(pathId, bounds.x, val, bounds.w, bounds.h); }} className="w-full bg-black/60 border border-white/10 rounded px-2 py-1 text-xs text-white" />
                                 </div>
                                 <div>
                                   <span className="text-[9px] text-white/40 block mb-1">Width</span>
-                                  <input type="number" value={Math.round(bounds.w)} onChange={e => { const val = parseFloat(e.target.value); if(!isNaN(val) && val > 0) applyPathTransform(pathId, bounds.x, bounds.y, val, bounds.h); }} className="w-full bg-black/60 border border-white/10 rounded px-2 py-1 text-xs text-white" />
+                                  <input type="number" value={Math.round(bounds.w)} onChange={e => { const val = parseFloat(e.target.value); if (!isNaN(val) && val > 0) applyPathTransform(pathId, bounds.x, bounds.y, val, bounds.h); }} className="w-full bg-black/60 border border-white/10 rounded px-2 py-1 text-xs text-white" />
                                 </div>
                                 <div>
                                   <span className="text-[9px] text-white/40 block mb-1">Height</span>
-                                  <input type="number" value={Math.round(bounds.h)} onChange={e => { const val = parseFloat(e.target.value); if(!isNaN(val) && val > 0) applyPathTransform(pathId, bounds.x, bounds.y, bounds.w, val); }} className="w-full bg-black/60 border border-white/10 rounded px-2 py-1 text-xs text-white" />
+                                  <input type="number" value={Math.round(bounds.h)} onChange={e => { const val = parseFloat(e.target.value); if (!isNaN(val) && val > 0) applyPathTransform(pathId, bounds.x, bounds.y, bounds.w, val); }} className="w-full bg-black/60 border border-white/10 rounded px-2 py-1 text-xs text-white" />
                                 </div>
                                 <div className="col-span-2">
                                   <span className="text-[9px] text-white/40 block mb-1">Rotation (deg)</span>
                                   <div className="flex gap-1 items-center">
-                                    <input 
-                                      type="number" 
-                                      value={Math.round(svgPaths.find(p => p.id === pathId)?.rotation || 0)} 
-                                      onChange={e => { const val = parseFloat(e.target.value); if(!isNaN(val)) applyPathTransform(pathId, bounds.x, bounds.y, bounds.w, bounds.h, val); }} 
-                                      className="flex-1 min-w-0 bg-black/60 border border-white/10 rounded-lg px-2 py-2 text-[13px] font-bold text-white focus:border-teal-500/50 outline-none h-9" 
+                                    <input
+                                      type="number"
+                                      value={Math.round(svgPaths.find(p => p.id === pathId)?.rotation || 0)}
+                                      onChange={e => { const val = parseFloat(e.target.value); if (!isNaN(val)) applyPathTransform(pathId, bounds.x, bounds.y, bounds.w, bounds.h, val); }}
+                                      className="flex-1 min-w-0 bg-black/60 border border-white/10 rounded-lg px-2 py-2 text-[13px] font-bold text-white focus:border-teal-500/50 outline-none h-9"
                                     />
-                                    <button 
+                                    <button
                                       onClick={() => applyPathTransform(pathId, bounds.x, bounds.y, bounds.w, bounds.h, 0)}
                                       className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-all border border-white/5 shrink-0"
                                       title={t('Reset Rotation', '회전 초기화')}
@@ -2983,7 +3134,7 @@ ${pathsSvg}
                           </button>
                         </div>
 
-                        <button 
+                        <button
                           onClick={() => { setStep('adjust'); setEditMode(false); }}
                           disabled={isDirectSvg}
                           className={`w-full flex items-center justify-center gap-2 py-2 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/5 ${isDirectSvg ? 'opacity-20 cursor-not-allowed' : ''}`}
@@ -3032,7 +3183,7 @@ ${pathsSvg}
                   <div
                     ref={viewportRef}
                     className="flex-1 overflow-hidden relative p-0"
-                    style={{ 
+                    style={{
                       cursor: isSpacePressed ? (isPanning ? 'grabbing' : 'grab') : (step === 'edit' ? (editMode ? 'crosshair' : drawTool === 'rect' ? 'crosshair' : 'default') : 'default'),
                       backgroundColor: '#ffffff'
                     }}
@@ -3072,7 +3223,7 @@ ${pathsSvg}
                           width={canvasSize.width}
                           height={canvasSize.height}
                           className="bg-transparent"
-                          style={{ 
+                          style={{
                             cursor: editMode ? 'crosshair' : drawTool === 'rect' ? 'crosshair' : 'default',
                             overflow: 'visible'
                           }}
@@ -3092,10 +3243,10 @@ ${pathsSvg}
                               <path d="M 100 0 L 0 0 0 100" fill="none" stroke="rgba(0,0,0,0.25)" strokeWidth={1.5 / zoom} />
                             </pattern>
                           </defs>
-                          
+
                           {/* Infinite Grid Background — huge area relative to SVG coordinates */}
                           <rect x="-50000" y="-50000" width="100000" height="100000" fill="url(#largeGrid)" pointerEvents="none" />
-                          
+
                           {showBgInEdit && sourceImage && (
                             <image
                               href={sourceImage.src}
@@ -3105,7 +3256,7 @@ ${pathsSvg}
                               preserveAspectRatio="none"
                             />
                           )}
-                          
+
                           {/* Combined paths preview — render in reverse so top-of-list layer draws last (on top) */}
                           {[...svgPaths].reverse().filter(p => p.visible !== false).map(path => {
                             const isSelected = selectedPathIds.has(path.id);
@@ -3135,10 +3286,10 @@ ${pathsSvg}
                                 });
                                 setSelectedPathId(null);
                               } else {
-                                setSelectedPathId(path.id); 
+                                setSelectedPathId(path.id);
                                 setSelectedPathIds(new Set([path.id]));
                               }
-                              setSelectedPoints(new Set()); 
+                              setSelectedPoints(new Set());
                             };
 
                             return (
@@ -3150,9 +3301,9 @@ ${pathsSvg}
                                   stroke="transparent"
                                   strokeWidth={16 / zoom}
                                   onMouseDown={handlePathMouseDown}
-                                  style={{ 
-                                    cursor: editMode || drawTool === 'rect' ? 'crosshair' : (isSelected ? 'move' : 'pointer'), 
-                                    pointerEvents: editMode || drawTool === 'rect' ? 'none' : 'auto' 
+                                  style={{
+                                    cursor: editMode || drawTool === 'rect' ? 'crosshair' : (isSelected ? 'move' : 'pointer'),
+                                    pointerEvents: editMode || drawTool === 'rect' ? 'none' : 'auto'
                                   }}
                                 />
                                 {/* Visual Path */}
@@ -3227,7 +3378,7 @@ ${pathsSvg}
                             if (!bounds) return null;
 
                             // Calculate Oriented Bounding Box (OBB)
-                            const center = { x: bounds.x + bounds.w / 2, y: bounds.y + bounds.h / 2 };
+                            const center = getPathTrueCenter(firstPath);
                             const angleDeg = firstPath.rotation || 0;
                             const angleRad = (-angleDeg * Math.PI) / 180;
                             const cos = Math.cos(angleRad);
@@ -3250,14 +3401,14 @@ ${pathsSvg}
                             const hSize = 10 / zoom;
                             const hHalf = hSize / 2;
                             const handles = [
-                              { id: 'nw', x: localBounds.x, y: localBounds.y, cursor: 'nwse-resize' },
-                              { id: 'n', x: localBounds.x + localBounds.w / 2, y: localBounds.y, cursor: 'ns-resize' },
-                              { id: 'ne', x: localBounds.x + localBounds.w, y: localBounds.y, cursor: 'nesw-resize' },
-                              { id: 'w', x: localBounds.x, y: localBounds.y + localBounds.h / 2, cursor: 'ew-resize' },
-                              { id: 'e', x: localBounds.x + localBounds.w, y: localBounds.y + localBounds.h / 2, cursor: 'ew-resize' },
-                              { id: 'sw', x: localBounds.x, y: localBounds.y + localBounds.h, cursor: 'nesw-resize' },
-                              { id: 's', x: localBounds.x + localBounds.w / 2, y: localBounds.y + localBounds.h, cursor: 'ns-resize' },
-                              { id: 'se', x: localBounds.x + localBounds.w, y: localBounds.y + localBounds.h, cursor: 'nwse-resize' },
+                              { id: 'nw', x: localBounds.x, y: localBounds.y, cursor: getRotatedCursor('nw', angleDeg) },
+                              { id: 'n', x: localBounds.x + localBounds.w / 2, y: localBounds.y, cursor: getRotatedCursor('n', angleDeg) },
+                              { id: 'ne', x: localBounds.x + localBounds.w, y: localBounds.y, cursor: getRotatedCursor('ne', angleDeg) },
+                              { id: 'w', x: localBounds.x, y: localBounds.y + localBounds.h / 2, cursor: getRotatedCursor('w', angleDeg) },
+                              { id: 'e', x: localBounds.x + localBounds.w, y: localBounds.y + localBounds.h / 2, cursor: getRotatedCursor('e', angleDeg) },
+                              { id: 'sw', x: localBounds.x, y: localBounds.y + localBounds.h, cursor: getRotatedCursor('sw', angleDeg) },
+                              { id: 's', x: localBounds.x + localBounds.w / 2, y: localBounds.y + localBounds.h, cursor: getRotatedCursor('s', angleDeg) },
+                              { id: 'se', x: localBounds.x + localBounds.w, y: localBounds.y + localBounds.h, cursor: getRotatedCursor('se', angleDeg) },
                             ];
 
                             const rotHandles = [
@@ -3269,11 +3420,28 @@ ${pathsSvg}
 
                             return (
                               <g transform={`rotate(${angleDeg}, ${center.x}, ${center.y})`}>
+                                {resizingLayer && (
+                                  <style>{`
+                                    * { cursor: ${getRotatedCursor(resizingLayer.handle, angleDeg)} !important; }
+                                  `}</style>
+                                )}
                                 <rect
                                   x={localBounds.x} y={localBounds.y} width={localBounds.w} height={localBounds.h}
                                   fill="none" stroke={ACCENT_400} strokeWidth={1 / zoom} strokeDasharray={`${4 / zoom} ${4 / zoom}`}
                                   pointerEvents="none"
                                 />
+                                {/* Visual Center Pivot Point */}
+                                <g transform={`translate(${localBounds.x + localBounds.w / 2}, ${localBounds.y + localBounds.h / 2})`}>
+                                  {/* White outer outline */}
+                                  <circle cx={0} cy={0} r={6 / zoom} fill="white" stroke={ACCENT_400} strokeWidth={1.2 / zoom} />
+                                  {/* Small inner target dot */}
+                                  <circle cx={0} cy={0} r={2.5 / zoom} fill={ACCENT_400} />
+                                  {/* Crosshairs */}
+                                  <line x1={-9 / zoom} y1={0} x2={-3 / zoom} y2={0} stroke={ACCENT_400} strokeWidth={1.2 / zoom} />
+                                  <line x1={3 / zoom} y1={0} x2={9 / zoom} y2={0} stroke={ACCENT_400} strokeWidth={1.2 / zoom} />
+                                  <line x1={0} y1={-9 / zoom} x2={0} y2={-3 / zoom} stroke={ACCENT_400} strokeWidth={1.2 / zoom} />
+                                  <line x1={0} y1={3 / zoom} x2={0} y2={9 / zoom} stroke={ACCENT_400} strokeWidth={1.2 / zoom} />
+                                </g>
                                 {rotHandles.map(h => (
                                   <circle
                                     key={`rot-${h.id}`}
@@ -3290,7 +3458,7 @@ ${pathsSvg}
                                       const ctm = svg.getScreenCTM()?.inverse();
                                       if (ctm) {
                                         const svgPt = pt.matrixTransform(ctm);
-                                        const center = { x: bounds.x + bounds.w / 2, y: bounds.y + bounds.h / 2 };
+                                        const center = getPathTrueCenter(firstPath);
                                         rotatingCenterRef.current = center;
                                         rotatingStartAngleRef.current = Math.atan2(svgPt.y - center.y, svgPt.x - center.x);
                                         setRotatingLayer(pathId);
@@ -3306,6 +3474,7 @@ ${pathsSvg}
                                     <rect
                                       x={h.x - 12 / zoom} y={h.y - 12 / zoom} width={24 / zoom} height={24 / zoom}
                                       fill="transparent"
+                                      style={{ cursor: h.cursor }}
                                       onMouseDown={(e) => {
                                         if (e.button === 1 || e.button === 2) return;
                                         e.stopPropagation();
@@ -3319,7 +3488,7 @@ ${pathsSvg}
                                           dragStartRef.current = { x: svgPt.x, y: svgPt.y };
                                         }
                                         setResizingLayer({ pathId, handle: h.id });
-                                        dragInitialBoundsRef.current = bounds;
+                                        dragInitialBoundsRef.current = localBounds;
                                         dragInitialPathsRef.current = JSON.parse(JSON.stringify(svgPaths));
                                       }}
                                     />
