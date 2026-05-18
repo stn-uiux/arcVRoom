@@ -19,75 +19,116 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 // Set global DRACO decoder path for useGLTF
 useGLTF.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
 
-const sanitizeMaterial = (mat: any, environment: THREE.Texture | null = null) => {
-  if (mat.isMeshStandardMaterial || mat.isMeshPhysicalMaterial) {
-    const mapSlots = [
-      'map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 
-      'emissiveMap', 'displacementMap', 'alphaMap', 'bumpMap',
-      'clearcoatMap', 'clearcoatRoughnessMap', 'clearcoatNormalMap',
-      'sheenColorMap', 'sheenRoughnessMap', 'iridescenceMap', 
-      'iridescenceThicknessMap', 'specularIntensityMap', 'specularColorMap',
-      'transmissionMap', 'thicknessMap', 'anisotropyMap', 'anisotropyRotationMap'
-    ];
-    
-    mapSlots.forEach(slot => {
-      if (mat[slot] === undefined) mat[slot] = null;
-    });
+const sanitizeMaterial = (mat: any, environment: THREE.Texture | null = null): any => {
+  if (!mat.isMeshStandardMaterial && !mat.isMeshPhysicalMaterial) return mat;
 
-    // ARC-FIX: Explicitly set envMap to null to allow perfect inheritance from scene.environment.
-    // This enables Three.js's internal PMREM optimizations and prevents seams/pinching artifacts
-    // that occur during manual environment map assignment.
-    mat.envMap = null;
-    
-    if (mat.isMeshPhysicalMaterial) {
-      if (mat.transmission === undefined) mat.transmission = 0;
-      if (mat.thickness === undefined) mat.thickness = 0;
-      if (mat.ior === undefined) mat.ior = 1.5;
-      if (mat.attenuationColor === undefined) mat.attenuationColor = new THREE.Color(1, 1, 1);
-      if (mat.attenuationDistance === undefined) mat.attenuationDistance = Infinity;
-      if (mat.clearcoat === undefined) mat.clearcoat = 0;
-      if (mat.clearcoatRoughness === undefined) mat.clearcoatRoughness = 0;
-      if (mat.sheen === undefined) mat.sheen = 0;
-      if (mat.sheenRoughness === undefined) mat.sheenRoughness = 0;
-      if (mat.sheenColor === undefined) mat.sheenColor = new THREE.Color(1, 1, 1);
-      if (mat.specularIntensity === undefined) mat.specularIntensity = 1;
-      if (mat.specularColor === undefined) mat.specularColor = new THREE.Color(1, 1, 1);
-      if (mat.iridescence === undefined) mat.iridescence = 0;
-      if (mat.iridescenceIOR === undefined) mat.iridescenceIOR = 1.3;
-      if (mat.anisotropy === undefined) mat.anisotropy = 0;
-      if (mat.anisotropyRotation === undefined) mat.anisotropyRotation = 0;
+  // ARC-FIX: Explicitly set envMap to null to allow perfect inheritance from scene.environment.
+  mat.envMap = null;
 
-      // ARC-FIX: Aggressively strip texture maps for disabled Physical features.
-      // Each map consumes a GPU texture unit; MeshPhysicalMaterial can easily exceed
-      // the WebGL MAX_TEXTURE_IMAGE_UNITS limit (16) if unused maps are left assigned.
-      if (!mat.clearcoat) {
-        mat.clearcoatMap = null;
-        mat.clearcoatRoughnessMap = null;
-        mat.clearcoatNormalMap = null;
-      }
-      if (!mat.sheen) {
-        mat.sheenColorMap = null;
-        mat.sheenRoughnessMap = null;
-      }
-      if (!mat.iridescence) {
-        mat.iridescenceMap = null;
-        mat.iridescenceThicknessMap = null;
-      }
-      if (!mat.transmission) {
-        mat.transmissionMap = null;
-        mat.thicknessMap = null;
-      }
-      if (!mat.anisotropy) {
-        mat.anisotropyMap = null;
-      }
-      if (mat.specularIntensity === 1 && (!mat.specularColor || mat.specularColor.equals(new THREE.Color(1, 1, 1)))) {
-        mat.specularIntensityMap = null;
-        mat.specularColorMap = null;
-      }
+  // --- MeshPhysicalMaterial → MeshStandardMaterial downgrade ---
+  // MeshPhysicalMaterial's shader reserves texture units for clearcoat, sheen, transmission,
+  // iridescence, anisotropy, specular etc. even when those features are at default values.
+  // If none of these features are actually used, downgrade to MeshStandardMaterial to free slots.
+  if (mat.isMeshPhysicalMaterial) {
+    const usesPhysical =
+      (mat.clearcoat && mat.clearcoat > 0) ||
+      (mat.sheen && mat.sheen > 0) ||
+      (mat.transmission && mat.transmission > 0) ||
+      (mat.iridescence && mat.iridescence > 0) ||
+      (mat.anisotropy && mat.anisotropy > 0) ||
+      (mat.specularIntensity !== undefined && mat.specularIntensity !== 1) ||
+      (mat.specularColor && !mat.specularColor.equals(new THREE.Color(1, 1, 1)));
+
+    if (!usesPhysical) {
+      // Downgrade: Create a MeshStandardMaterial with matching properties
+      const stdMat = new THREE.MeshStandardMaterial();
+      // Copy core properties
+      stdMat.name = mat.name;
+      stdMat.color.copy(mat.color);
+      stdMat.map = mat.map;
+      stdMat.normalMap = mat.normalMap;
+      stdMat.normalScale.copy(mat.normalScale);
+      stdMat.roughness = mat.roughness;
+      stdMat.roughnessMap = mat.roughnessMap;
+      stdMat.metalness = mat.metalness;
+      stdMat.metalnessMap = mat.metalnessMap;
+      stdMat.aoMap = mat.aoMap;
+      stdMat.aoMapIntensity = mat.aoMapIntensity;
+      stdMat.emissive.copy(mat.emissive);
+      stdMat.emissiveIntensity = mat.emissiveIntensity;
+      stdMat.emissiveMap = mat.emissiveMap;
+      stdMat.alphaMap = mat.alphaMap;
+      stdMat.transparent = mat.transparent;
+      stdMat.opacity = mat.opacity;
+      stdMat.side = mat.side;
+      stdMat.depthWrite = mat.depthWrite;
+      stdMat.depthTest = mat.depthTest;
+      stdMat.envMapIntensity = mat.envMapIntensity ?? 1;
+      stdMat.flatShading = mat.flatShading;
+      stdMat.vertexColors = mat.vertexColors;
+      stdMat.envMap = null;
+      // Skip bumpMap/displacementMap/lightMap to save texture units
+      stdMat.needsUpdate = true;
+      mat.dispose();
+      return stdMat;
     }
-    mat.needsUpdate = true;
+
+    // Still MeshPhysicalMaterial — aggressively strip maps for disabled features
+    if (!mat.clearcoat) {
+      mat.clearcoatMap = null;
+      mat.clearcoatRoughnessMap = null;
+      mat.clearcoatNormalMap = null;
+    }
+    if (!mat.sheen) {
+      mat.sheenColorMap = null;
+      mat.sheenRoughnessMap = null;
+    }
+    if (!mat.iridescence) {
+      mat.iridescenceMap = null;
+      mat.iridescenceThicknessMap = null;
+    }
+    if (!mat.transmission) {
+      mat.transmissionMap = null;
+      mat.thicknessMap = null;
+    }
+    if (!mat.anisotropy) {
+      mat.anisotropyMap = null;
+    }
+    mat.specularIntensityMap = null;
+    mat.specularColorMap = null;
   }
+
+  // --- Common cleanup for both Standard and Physical ---
+  // Strip redundant maps: bumpMap is superseded by normalMap
+  if (mat.normalMap && mat.bumpMap) mat.bumpMap = null;
+  // lightMap is rarely used in realtime
+  mat.lightMap = null;
+  // displacementMap is expensive and rarely needed for furniture
+  mat.displacementMap = null;
+
+  // --- Final safety: count active texture units and strip lowest-priority if > 14 ---
+  // (Leave 2 slots for envMap from scene.environment + internal render targets)
+  const prioritizedSlots = [
+    'map', 'normalMap', 'roughnessMap', 'metalnessMap', 'alphaMap',
+    'emissiveMap', 'aoMap', 'bumpMap',
+    'clearcoatMap', 'clearcoatNormalMap', 'clearcoatRoughnessMap',
+    'sheenColorMap', 'sheenRoughnessMap',
+    'transmissionMap', 'thicknessMap',
+    'iridescenceMap', 'iridescenceThicknessMap',
+    'anisotropyMap',
+  ];
+  const activeSlots = prioritizedSlots.filter(s => mat[s] != null);
+  if (activeSlots.length > 14) {
+    // Strip from the end (lowest priority) until we're at 14
+    for (let i = activeSlots.length - 1; i >= 0 && activeSlots.filter(s => mat[s] != null).length > 14; i--) {
+      mat[activeSlots[i]] = null;
+    }
+  }
+
+  mat.needsUpdate = true;
+  return mat;
 };
+
 
 class ModelErrorBoundary extends React.Component<
   { children: React.ReactNode; url: string },
@@ -423,12 +464,14 @@ export const Furniture = React.memo(({
               mesh.userData.materialCloned = true;
             }
 
-            const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+            let mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
             let isAnyGlass = false;
 
+            // ARC-FIX: Sanitize materials (may downgrade Physical→Standard, reassign)
+            mats = mats.map((m: any) => sanitizeMaterial(m, null));
+            mesh.material = Array.isArray(mesh.material) ? mats : mats[0];
+
             mats.forEach((mat: any) => {
-              // ARC-FIX: Sanitize material immediately upon cloning
-              sanitizeMaterial(mat, null);
 
               // Apply UI Culling overrides natively to all materials in the GLTF
               if (item.flipNormals !== undefined) {
@@ -601,7 +644,9 @@ export const Furniture = React.memo(({
               }
 
               // ARC-FIX: CRITICAL - Ensure NO material property is undefined to prevent refreshUniformsPhysical crash
-              sanitizeMaterial(mat, scene.environment);
+              // Note: In live-update path, we don't downgrade (material was already sanitized on load).
+              // Just ensure maps/envMap are clean.
+              mat.envMap = null;
             });
         }
       });
